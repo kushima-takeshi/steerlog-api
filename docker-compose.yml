@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: steerlog-postgres
+    environment:
+      POSTGRES_DB: steerlog
+      POSTGRES_USER: steerlog
+      POSTGRES_PASSWORD: steerlog
+    ports:
+      - "5432:5432"
+    volumes:
+      - steerlog_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U steerlog -d steerlog"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  steerlog_pg_data:
