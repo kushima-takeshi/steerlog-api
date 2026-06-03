@@ -3,6 +3,7 @@ package com.steerlog.service;
 import com.steerlog.dto.request.CreateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ResourceDetailResponse;
+import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.entity.Progress;
 import com.steerlog.entity.ProgressStatus;
 import com.steerlog.entity.Resource;
@@ -145,7 +146,7 @@ class ResourceServiceTest {
     }
 
     @Test
-    void getResourceDetail_shouldThrowRuntimeExceptionWhenResourceNotFound() {
+    void getResourceDetail_shouldThrowResourceNotFoundExceptionWhenResourceNotFound() {
         Long userId = 1L;
         Long resourceId = 10L;
 
@@ -153,7 +154,7 @@ class ResourceServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> resourceService.getResourceDetail(userId, resourceId))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessage("Resource not found");
 
         verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);

@@ -4,6 +4,7 @@ import com.steerlog.dto.request.CreateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ProgressResponse;
 import com.steerlog.dto.response.ResourceDetailResponse;
+import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.entity.Progress;
 import com.steerlog.entity.ProgressStatus;
 import com.steerlog.entity.Resource;
@@ -58,7 +59,7 @@ public class ResourceService {
     public ResourceDetailResponse getResourceDetail(Long userId, Long resourceId) {
         Resource resource = resourceRepository
                 .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
-                .orElseThrow(() -> new RuntimeException("Resource not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
 
         Progress progress = progressRepository
                 .findByUserIdAndResourceId(userId, resourceId)
