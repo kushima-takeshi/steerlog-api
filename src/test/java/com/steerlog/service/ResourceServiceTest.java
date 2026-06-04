@@ -3,6 +3,7 @@ package com.steerlog.service;
 import com.steerlog.dto.request.CreateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ResourceDetailResponse;
+import com.steerlog.dto.response.ResourceListItemResponse;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.entity.Progress;
 import com.steerlog.entity.ProgressStatus;
@@ -18,11 +19,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -184,5 +188,96 @@ class ResourceServiceTest {
 
         verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
         verify(progressRepository).findByUserIdAndResourceId(userId, resourceId);
+    }
+
+    @Test
+    void getResources_shouldReturnResourcesWithProgress() {
+        Long userId = 1L;
+        Instant older = Instant.parse("2026-06-01T10:00:00Z");
+        Instant newer = Instant.parse("2026-06-03T10:00:00Z");
+
+        Resource resource1 = buildResource(10L, userId, "古い本", older);
+        Resource resource2 = buildResource(20L, userId, "新しい本", newer);
+
+        Progress progress1 = buildProgress(100L, userId, 10L, older);
+        Progress progress2 = buildProgress(200L, userId, 20L, newer);
+
+        when(resourceRepository.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId))
+                .thenReturn(List.of(resource2, resource1));
+        when(progressRepository.findByUserIdAndResourceIdIn(userId, List.of(20L, 10L)))
+                .thenReturn(List.of(progress1, progress2));
+
+        List<ResourceListItemResponse> responses = resourceService.getResources(userId);
+
+        verify(resourceRepository).findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId);
+        verify(progressRepository).findByUserIdAndResourceIdIn(userId, List.of(20L, 10L));
+
+        assertThat(responses).hasSize(2);
+        assertThat(responses.get(0).getResourceId()).isEqualTo(20L);
+        assertThat(responses.get(0).getTitle()).isEqualTo("新しい本");
+        assertThat(responses.get(0).getProgress().getProgressId()).isEqualTo(200L);
+        assertThat(responses.get(0).getProgress().getStatus()).isEqualTo(ProgressStatus.NOT_STARTED);
+        assertThat(responses.get(0).getProgress().getCurrentLevel()).isEqualTo(0);
+
+        assertThat(responses.get(1).getResourceId()).isEqualTo(10L);
+        assertThat(responses.get(1).getTitle()).isEqualTo("古い本");
+        assertThat(responses.get(1).getProgress().getProgressId()).isEqualTo(100L);
+    }
+
+    @Test
+    void getResources_shouldReturnEmptyListWhenNoResources() {
+        Long userId = 1L;
+
+        when(resourceRepository.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId))
+                .thenReturn(Collections.emptyList());
+
+        List<ResourceListItemResponse> responses = resourceService.getResources(userId);
+
+        assertThat(responses).isEmpty();
+        verify(resourceRepository).findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId);
+        verify(progressRepository, never()).findByUserIdAndResourceIdIn(any(), any());
+    }
+
+    @Test
+    void getResources_shouldThrowRuntimeExceptionWhenProgressMissing() {
+        Long userId = 1L;
+        Instant now = Instant.parse("2026-06-03T10:00:00Z");
+
+        Resource resource = buildResource(10L, userId, "Webを支える技術", now);
+
+        when(resourceRepository.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId))
+                .thenReturn(List.of(resource));
+        when(progressRepository.findByUserIdAndResourceIdIn(userId, List.of(10L)))
+                .thenReturn(Collections.emptyList());
+
+        assertThatThrownBy(() -> resourceService.getResources(userId))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Progress not found for resourceId=10");
+
+        verify(resourceRepository).findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId);
+        verify(progressRepository).findByUserIdAndResourceIdIn(userId, List.of(10L));
+    }
+
+    private Resource buildResource(Long resourceId, Long userId, String title, Instant createdAt) {
+        Resource resource = new Resource();
+        resource.setResourceId(resourceId);
+        resource.setUserId(userId);
+        resource.setResourceType(ResourceType.BOOK);
+        resource.setTitle(title);
+        resource.setCreatedAt(createdAt);
+        resource.setUpdatedAt(createdAt);
+        return resource;
+    }
+
+    private Progress buildProgress(Long progressId, Long userId, Long resourceId, Instant createdAt) {
+        Progress progress = new Progress();
+        progress.setProgressId(progressId);
+        progress.setUserId(userId);
+        progress.setResourceId(resourceId);
+        progress.setStatus(ProgressStatus.NOT_STARTED);
+        progress.setCurrentLevel(0);
+        progress.setCreatedAt(createdAt);
+        progress.setUpdatedAt(createdAt);
+        return progress;
     }
 }
