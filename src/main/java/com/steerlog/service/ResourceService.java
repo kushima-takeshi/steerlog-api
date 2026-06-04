@@ -4,6 +4,7 @@ import com.steerlog.dto.request.CreateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ProgressResponse;
 import com.steerlog.dto.response.ResourceDetailResponse;
+import com.steerlog.dto.response.ResourceListItemResponse;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.entity.Progress;
 import com.steerlog.entity.ProgressStatus;
@@ -14,6 +15,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class ResourceService {
@@ -68,6 +74,32 @@ public class ResourceService {
         return toResourceDetailResponse(resource, progress);
     }
 
+    @Transactional(readOnly = true)
+    public List<ResourceListItemResponse> getResources(Long userId) {
+        List<Resource> resources = resourceRepository.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId);
+        if (resources.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> resourceIds = resources.stream()
+                .map(Resource::getResourceId)
+                .toList();
+
+        List<Progress> progresses = progressRepository.findByUserIdAndResourceIdIn(userId, resourceIds);
+        Map<Long, Progress> progressByResourceId = progresses.stream()
+                .collect(Collectors.toMap(Progress::getResourceId, progress -> progress));
+
+        List<ResourceListItemResponse> responses = new ArrayList<>();
+        for (Resource resource : resources) {
+            Progress progress = progressByResourceId.get(resource.getResourceId());
+            if (progress == null) {
+                throw new RuntimeException("Progress not found for resourceId=" + resource.getResourceId());
+            }
+            responses.add(toResourceListItemResponse(resource, progress));
+        }
+        return responses;
+    }
+
     private CreateResourceResponse toCreateResourceResponse(Resource resource, Progress progress) {
         CreateResourceResponse response = new CreateResourceResponse();
         response.setResourceId(resource.getResourceId());
@@ -101,6 +133,20 @@ public class ResourceService {
 
     private ResourceDetailResponse toResourceDetailResponse(Resource resource, Progress progress) {
         ResourceDetailResponse response = new ResourceDetailResponse();
+        response.setResourceId(resource.getResourceId());
+        response.setResourceType(resource.getResourceType());
+        response.setTitle(resource.getTitle());
+        response.setAuthor(resource.getAuthor());
+        response.setSourceUrl(resource.getSourceUrl());
+        response.setDescription(resource.getDescription());
+        response.setCreatedAt(resource.getCreatedAt());
+        response.setUpdatedAt(resource.getUpdatedAt());
+        response.setProgress(toProgressResponse(progress));
+        return response;
+    }
+
+    private ResourceListItemResponse toResourceListItemResponse(Resource resource, Progress progress) {
+        ResourceListItemResponse response = new ResourceListItemResponse();
         response.setResourceId(resource.getResourceId());
         response.setResourceType(resource.getResourceType());
         response.setTitle(resource.getTitle());
