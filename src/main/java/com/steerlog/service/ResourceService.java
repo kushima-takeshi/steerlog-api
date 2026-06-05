@@ -100,6 +100,18 @@ public class ResourceService {
         return responses;
     }
 
+    @Transactional
+    public void deleteResource(Long userId, Long resourceId) {
+        Resource resource = resourceRepository
+                .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        Instant now = Instant.now();
+        resource.setDeletedAt(now);
+        resource.setUpdatedAt(now);
+        resourceRepository.save(resource);
+    }
+
     private CreateResourceResponse toCreateResourceResponse(Resource resource, Progress progress) {
         CreateResourceResponse response = new CreateResourceResponse();
         response.setResourceId(resource.getResourceId());
