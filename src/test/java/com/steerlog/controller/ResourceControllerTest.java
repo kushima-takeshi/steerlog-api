@@ -25,8 +25,11 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -114,6 +117,33 @@ class ResourceControllerTest {
                 .andExpect(jsonPath("$.progress.currentLevel").value(0));
 
         verify(resourceService).getResourceDetail(TEMP_USER_ID, resourceId);
+    }
+
+    @Test
+    void deleteResource_shouldReturn204() throws Exception {
+        Long resourceId = 10L;
+
+        doNothing().when(resourceService).deleteResource(TEMP_USER_ID, resourceId);
+
+        mockMvc.perform(delete("/resources/{resourceId}", resourceId))
+                .andExpect(status().isNoContent());
+
+        verify(resourceService).deleteResource(TEMP_USER_ID, resourceId);
+    }
+
+    @Test
+    void deleteResource_shouldReturn404WhenResourceNotFound() throws Exception {
+        Long resourceId = 10L;
+
+        doThrow(new ResourceNotFoundException("Resource not found"))
+                .when(resourceService).deleteResource(TEMP_USER_ID, resourceId);
+
+        mockMvc.perform(delete("/resources/{resourceId}", resourceId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+
+        verify(resourceService).deleteResource(TEMP_USER_ID, resourceId);
     }
 
     @Test

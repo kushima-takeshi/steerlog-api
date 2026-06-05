@@ -258,6 +258,47 @@ class ResourceServiceTest {
         verify(progressRepository).findByUserIdAndResourceIdIn(userId, List.of(10L));
     }
 
+    @Test
+    void deleteResource_shouldSoftDeleteResource() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Instant before = Instant.parse("2026-06-01T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId, "Webを支える技術", before);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceRepository.save(any(Resource.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        resourceService.deleteResource(userId, resourceId);
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+
+        ArgumentCaptor<Resource> resourceCaptor = ArgumentCaptor.forClass(Resource.class);
+        verify(resourceRepository).save(resourceCaptor.capture());
+
+        Resource savedResource = resourceCaptor.getValue();
+        assertThat(savedResource.getDeletedAt()).isNotNull();
+        assertThat(savedResource.getUpdatedAt()).isNotNull();
+        assertThat(savedResource.getDeletedAt()).isEqualTo(savedResource.getUpdatedAt());
+    }
+
+    @Test
+    void deleteResource_shouldThrowResourceNotFoundExceptionWhenResourceNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceService.deleteResource(userId, resourceId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(resourceRepository, never()).save(any(Resource.class));
+    }
+
     private Resource buildResource(Long resourceId, Long userId, String title, Instant createdAt) {
         Resource resource = new Resource();
         resource.setResourceId(resourceId);

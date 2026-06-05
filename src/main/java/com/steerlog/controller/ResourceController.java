@@ -8,6 +8,7 @@ import com.steerlog.service.ResourceService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,5 +47,11 @@ public class ResourceController {
     public ResponseEntity<ResourceDetailResponse> getResourceDetail(@PathVariable Long resourceId) {
         ResourceDetailResponse response = resourceService.getResourceDetail(TEMP_USER_ID, resourceId);
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{resourceId}")
+    public ResponseEntity<Void> deleteResource(@PathVariable Long resourceId) {
+        resourceService.deleteResource(TEMP_USER_ID, resourceId);
+        return ResponseEntity.noContent().build();
     }
 }
