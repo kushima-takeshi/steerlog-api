@@ -5,6 +5,7 @@ import com.steerlog.dto.request.CreateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ProgressResponse;
 import com.steerlog.dto.response.ResourceDetailResponse;
+import com.steerlog.dto.response.ResourceListItemResponse;
 import com.steerlog.entity.ProgressStatus;
 import com.steerlog.entity.ResourceType;
 import com.steerlog.exception.GlobalExceptionHandler;
@@ -19,6 +20,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -69,6 +72,34 @@ class ResourceControllerTest {
     }
 
     @Test
+    void getResources_shouldReturn200WithResourceList() throws Exception {
+        ResourceListItemResponse item = buildResourceListItemResponse(10L, "Webを支える技術");
+
+        when(resourceService.getResources(TEMP_USER_ID)).thenReturn(List.of(item));
+
+        mockMvc.perform(get("/resources"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].resourceId").value(10))
+                .andExpect(jsonPath("$[0].title").value("Webを支える技術"))
+                .andExpect(jsonPath("$[0].progress.status").value("NOT_STARTED"))
+                .andExpect(jsonPath("$[0].progress.currentLevel").value(0));
+
+        verify(resourceService).getResources(TEMP_USER_ID);
+    }
+
+    @Test
+    void getResources_shouldReturn200WithEmptyList() throws Exception {
+        when(resourceService.getResources(TEMP_USER_ID)).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(get("/resources"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        verify(resourceService).getResources(TEMP_USER_ID);
+    }
+
+    @Test
     void getResourceDetail_shouldReturn200WithResourceAndProgress() throws Exception {
         Long resourceId = 10L;
         ResourceDetailResponse response = buildResourceDetailResponse(resourceId, "Webを支える技術");
@@ -104,6 +135,19 @@ class ResourceControllerTest {
         Instant now = Instant.parse("2026-06-03T10:00:00Z");
 
         CreateResourceResponse response = new CreateResourceResponse();
+        response.setResourceId(resourceId);
+        response.setResourceType(ResourceType.BOOK);
+        response.setTitle(title);
+        response.setCreatedAt(now);
+        response.setUpdatedAt(now);
+        response.setProgress(buildProgressResponse(20L, now));
+        return response;
+    }
+
+    private ResourceListItemResponse buildResourceListItemResponse(Long resourceId, String title) {
+        Instant now = Instant.parse("2026-06-03T10:00:00Z");
+
+        ResourceListItemResponse response = new ResourceListItemResponse();
         response.setResourceId(resourceId);
         response.setResourceType(ResourceType.BOOK);
         response.setTitle(title);
