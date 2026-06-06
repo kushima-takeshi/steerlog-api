@@ -2,6 +2,7 @@ package com.steerlog.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.steerlog.dto.request.CreateResourceRequest;
+import com.steerlog.dto.request.UpdateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ProgressResponse;
 import com.steerlog.dto.response.ResourceDetailResponse;
@@ -31,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -117,6 +119,48 @@ class ResourceControllerTest {
                 .andExpect(jsonPath("$.progress.currentLevel").value(0));
 
         verify(resourceService).getResourceDetail(TEMP_USER_ID, resourceId);
+    }
+
+    @Test
+    void updateResource_shouldReturn200WithUpdatedResource() throws Exception {
+        Long resourceId = 10L;
+        UpdateResourceRequest request = new UpdateResourceRequest();
+        request.setTitle("更新後タイトル");
+
+        ResourceDetailResponse response = buildResourceDetailResponse(resourceId, "更新後タイトル");
+
+        when(resourceService.updateResource(eq(TEMP_USER_ID), eq(resourceId), any(UpdateResourceRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(patch("/resources/{resourceId}", resourceId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resourceId").value(10))
+                .andExpect(jsonPath("$.title").value("更新後タイトル"))
+                .andExpect(jsonPath("$.progress.status").value("NOT_STARTED"))
+                .andExpect(jsonPath("$.progress.currentLevel").value(0));
+
+        verify(resourceService).updateResource(eq(TEMP_USER_ID), eq(resourceId), any(UpdateResourceRequest.class));
+    }
+
+    @Test
+    void updateResource_shouldReturn404WhenResourceNotFound() throws Exception {
+        Long resourceId = 10L;
+        UpdateResourceRequest request = new UpdateResourceRequest();
+        request.setTitle("更新後タイトル");
+
+        when(resourceService.updateResource(eq(TEMP_USER_ID), eq(resourceId), any(UpdateResourceRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Resource not found"));
+
+        mockMvc.perform(patch("/resources/{resourceId}", resourceId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+
+        verify(resourceService).updateResource(eq(TEMP_USER_ID), eq(resourceId), any(UpdateResourceRequest.class));
     }
 
     @Test

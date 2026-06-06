@@ -1,6 +1,7 @@
 package com.steerlog.service;
 
 import com.steerlog.dto.request.CreateResourceRequest;
+import com.steerlog.dto.request.UpdateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ProgressResponse;
 import com.steerlog.dto.response.ResourceDetailResponse;
@@ -110,6 +111,35 @@ public class ResourceService {
         resource.setDeletedAt(now);
         resource.setUpdatedAt(now);
         resourceRepository.save(resource);
+    }
+
+    @Transactional
+    public ResourceDetailResponse updateResource(Long userId, Long resourceId, UpdateResourceRequest request) {
+        Resource resource = resourceRepository
+                .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        if (request.getTitle() != null) {
+            resource.setTitle(request.getTitle());
+        }
+        if (request.getAuthor() != null) {
+            resource.setAuthor(request.getAuthor());
+        }
+        if (request.getSourceUrl() != null) {
+            resource.setSourceUrl(request.getSourceUrl());
+        }
+        if (request.getDescription() != null) {
+            resource.setDescription(request.getDescription());
+        }
+
+        resource.setUpdatedAt(Instant.now());
+        Resource savedResource = resourceRepository.save(resource);
+
+        Progress progress = progressRepository
+                .findByUserIdAndResourceId(userId, resourceId)
+                .orElseThrow(() -> new RuntimeException("Progress not found"));
+
+        return toResourceDetailResponse(savedResource, progress);
     }
 
     private CreateResourceResponse toCreateResourceResponse(Resource resource, Progress progress) {
