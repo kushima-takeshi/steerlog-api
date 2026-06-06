@@ -1,6 +1,7 @@
 package com.steerlog.service;
 
 import com.steerlog.dto.request.CreateResourceRequest;
+import com.steerlog.dto.request.UpdateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ResourceDetailResponse;
 import com.steerlog.dto.response.ResourceListItemResponse;
@@ -297,6 +298,95 @@ class ResourceServiceTest {
 
         verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
         verify(resourceRepository, never()).save(any(Resource.class));
+    }
+
+    @Test
+    void updateResource_shouldUpdateOnlyProvidedFields() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Instant before = Instant.parse("2026-06-01T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId, "旧タイトル", before);
+        resource.setAuthor("山本陽平");
+        resource.setSourceUrl("https://example.com/old");
+        resource.setDescription("旧説明");
+
+        UpdateResourceRequest request = new UpdateResourceRequest();
+        request.setTitle("新タイトル");
+        request.setDescription("新説明");
+
+        Progress progress = buildProgress(20L, userId, resourceId, before);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceRepository.save(any(Resource.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.of(progress));
+
+        ResourceDetailResponse response = resourceService.updateResource(userId, resourceId, request);
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(progressRepository).findByUserIdAndResourceId(userId, resourceId);
+
+        ArgumentCaptor<Resource> resourceCaptor = ArgumentCaptor.forClass(Resource.class);
+        verify(resourceRepository).save(resourceCaptor.capture());
+
+        Resource savedResource = resourceCaptor.getValue();
+        assertThat(savedResource.getTitle()).isEqualTo("新タイトル");
+        assertThat(savedResource.getDescription()).isEqualTo("新説明");
+        assertThat(savedResource.getAuthor()).isEqualTo("山本陽平");
+        assertThat(savedResource.getSourceUrl()).isEqualTo("https://example.com/old");
+        assertThat(savedResource.getUpdatedAt()).isNotNull();
+        assertThat(savedResource.getUpdatedAt()).isAfter(before);
+
+        assertThat(response.getResourceId()).isEqualTo(resourceId);
+        assertThat(response.getTitle()).isEqualTo("新タイトル");
+        assertThat(response.getDescription()).isEqualTo("新説明");
+        assertThat(response.getProgress()).isNotNull();
+        assertThat(response.getProgress().getProgressId()).isEqualTo(20L);
+    }
+
+    @Test
+    void updateResource_shouldThrowResourceNotFoundExceptionWhenResourceNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        UpdateResourceRequest request = new UpdateResourceRequest();
+        request.setTitle("新タイトル");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceService.updateResource(userId, resourceId, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(resourceRepository, never()).save(any(Resource.class));
+    }
+
+    @Test
+    void updateResource_shouldThrowRuntimeExceptionWhenProgressNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Instant before = Instant.parse("2026-06-01T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId, "Webを支える技術", before);
+        UpdateResourceRequest request = new UpdateResourceRequest();
+        request.setTitle("新タイトル");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceRepository.save(any(Resource.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceService.updateResource(userId, resourceId, request))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Progress not found");
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(resourceRepository).save(any(Resource.class));
+        verify(progressRepository).findByUserIdAndResourceId(userId, resourceId);
     }
 
     private Resource buildResource(Long resourceId, Long userId, String title, Instant createdAt) {
