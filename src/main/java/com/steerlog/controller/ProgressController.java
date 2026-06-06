@@ -3,6 +3,7 @@ package com.steerlog.controller;
 import com.steerlog.dto.response.ProgressResponse;
 import com.steerlog.service.ProgressService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +19,12 @@ public class ProgressController {
 
     public ProgressController(ProgressService progressService) {
         this.progressService = progressService;
+    }
+
+    @GetMapping
+    public ResponseEntity<ProgressResponse> getProgress(@PathVariable Long resourceId) {
+        ProgressResponse response = progressService.getProgress(TEMP_USER_ID, resourceId);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/complete-initial-study")

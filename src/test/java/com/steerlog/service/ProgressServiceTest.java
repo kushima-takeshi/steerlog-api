@@ -45,6 +45,77 @@ class ProgressServiceTest {
     private ProgressService progressService;
 
     @Test
+    void getProgress_shouldReturnProgress() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Instant now = Instant.parse("2026-06-03T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId, now);
+        Progress progress = buildProgress(20L, userId, resourceId, now);
+        progress.setStatus(ProgressStatus.IN_PROGRESS);
+        progress.setCurrentLevel(1);
+        progress.setInitialStudiedAt(now);
+        progress.setLastStudiedAt(now);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.of(progress));
+
+        ProgressResponse response = progressService.getProgress(userId, resourceId);
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(progressRepository).findByUserIdAndResourceId(userId, resourceId);
+        verify(progressRepository, never()).save(any(Progress.class));
+        verify(levelHistoryRepository, never()).existsByUserIdAndResourceIdAndLevel(any(), any(), any());
+        verify(levelHistoryRepository, never()).save(any(LevelHistory.class));
+
+        assertThat(response.getProgressId()).isEqualTo(20L);
+        assertThat(response.getStatus()).isEqualTo(ProgressStatus.IN_PROGRESS);
+        assertThat(response.getCurrentLevel()).isEqualTo(1);
+        assertThat(response.getInitialStudiedAt()).isEqualTo(now);
+        assertThat(response.getLastStudiedAt()).isEqualTo(now);
+    }
+
+    @Test
+    void getProgress_shouldThrowResourceNotFoundExceptionWhenResourceNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> progressService.getProgress(userId, resourceId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(progressRepository, never()).findByUserIdAndResourceId(any(), any());
+    }
+
+    @Test
+    void getProgress_shouldThrowRuntimeExceptionWhenProgressNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Instant now = Instant.parse("2026-06-03T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId, now);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> progressService.getProgress(userId, resourceId))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Progress not found");
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(progressRepository).findByUserIdAndResourceId(userId, resourceId);
+        verify(progressRepository, never()).save(any(Progress.class));
+    }
+
+    @Test
     void completeInitialStudy_shouldUpdateProgressAndCreateLevelHistory() {
         Long userId = 1L;
         Long resourceId = 10L;

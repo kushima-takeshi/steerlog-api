@@ -31,6 +31,19 @@ public class ProgressService {
         this.levelHistoryRepository = levelHistoryRepository;
     }
 
+    @Transactional(readOnly = true)
+    public ProgressResponse getProgress(Long userId, Long resourceId) {
+        resourceRepository
+                .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        Progress progress = progressRepository
+                .findByUserIdAndResourceId(userId, resourceId)
+                .orElseThrow(() -> new RuntimeException("Progress not found"));
+
+        return toProgressResponse(progress);
+    }
+
     @Transactional
     public ProgressResponse completeInitialStudy(Long userId, Long resourceId) {
         resourceRepository
