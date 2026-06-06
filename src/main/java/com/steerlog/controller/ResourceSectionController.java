@@ -1,0 +1,44 @@
+package com.steerlog.controller;
+
+import com.steerlog.dto.request.CreateResourceSectionRequest;
+import com.steerlog.dto.response.ResourceSectionResponse;
+import com.steerlog.service.ResourceSectionService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/resources/{resourceId}/sections")
+public class ResourceSectionController {
+
+    private static final Long TEMP_USER_ID = 1L;
+
+    private final ResourceSectionService resourceSectionService;
+
+    public ResourceSectionController(ResourceSectionService resourceSectionService) {
+        this.resourceSectionService = resourceSectionService;
+    }
+
+    @PostMapping
+    public ResponseEntity<ResourceSectionResponse> createSection(
+            @PathVariable Long resourceId,
+            @Valid @RequestBody CreateResourceSectionRequest request) {
+        ResourceSectionResponse response =
+                resourceSectionService.createSection(TEMP_USER_ID, resourceId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ResourceSectionResponse>> getSections(@PathVariable Long resourceId) {
+        List<ResourceSectionResponse> responses = resourceSectionService.getSections(TEMP_USER_ID, resourceId);
+        return ResponseEntity.ok(responses);
+    }
+}
