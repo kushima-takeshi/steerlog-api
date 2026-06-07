@@ -333,6 +333,75 @@ class StudyMemoServiceTest {
                 .findByUserIdAndResourceIdAndDeletedAtIsNullOrderByCreatedAtDesc(any(), any());
     }
 
+    @Test
+    void deleteMemo_shouldSoftDeleteMemo() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long studyMemoId = 500L;
+        Instant before = Instant.parse("2026-06-03T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId);
+        StudyMemo memo = buildMemo(studyMemoId, userId, resourceId, null, StudyMemoType.GENERAL, "メモ内容", before);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(studyMemoRepository.findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                studyMemoId, userId, resourceId))
+                .thenReturn(Optional.of(memo));
+        when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        studyMemoService.deleteMemo(userId, resourceId, studyMemoId);
+
+        ArgumentCaptor<StudyMemo> memoCaptor = ArgumentCaptor.forClass(StudyMemo.class);
+        verify(studyMemoRepository).save(memoCaptor.capture());
+
+        StudyMemo savedMemo = memoCaptor.getValue();
+        assertThat(savedMemo.getDeletedAt()).isNotNull();
+        assertThat(savedMemo.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void deleteMemo_shouldThrowResourceNotFoundExceptionWhenResourceNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long studyMemoId = 500L;
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studyMemoService.deleteMemo(userId, resourceId, studyMemoId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(studyMemoRepository, never())
+                .findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(any(), any(), any());
+        verify(studyMemoRepository, never()).save(any(StudyMemo.class));
+    }
+
+    @Test
+    void deleteMemo_shouldThrowResourceNotFoundExceptionWhenMemoNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long studyMemoId = 500L;
+
+        Resource resource = buildResource(resourceId, userId);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(studyMemoRepository.findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                studyMemoId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studyMemoService.deleteMemo(userId, resourceId, studyMemoId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(studyMemoRepository).findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                studyMemoId, userId, resourceId);
+        verify(studyMemoRepository, never()).save(any(StudyMemo.class));
+    }
+
     private Resource buildResource(Long resourceId, Long userId) {
         Instant now = Instant.parse("2026-06-01T10:00:00Z");
         Resource resource = new Resource();

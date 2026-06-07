@@ -21,8 +21,11 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -133,5 +136,34 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
         verify(studyMemoService).createMemo(eq(TEMP_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class));
+    }
+
+    @Test
+    void deleteMemo_shouldReturn204() throws Exception {
+        Long resourceId = 10L;
+        Long memoId = 500L;
+
+        doNothing().when(studyMemoService).deleteMemo(TEMP_USER_ID, resourceId, memoId);
+
+        mockMvc.perform(delete("/resources/{resourceId}/memos/{memoId}", resourceId, memoId))
+                .andExpect(status().isNoContent());
+
+        verify(studyMemoService).deleteMemo(TEMP_USER_ID, resourceId, memoId);
+    }
+
+    @Test
+    void deleteMemo_shouldReturn404WhenMemoNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long memoId = 500L;
+
+        doThrow(new ResourceNotFoundException("Resource not found"))
+                .when(studyMemoService).deleteMemo(TEMP_USER_ID, resourceId, memoId);
+
+        mockMvc.perform(delete("/resources/{resourceId}/memos/{memoId}", resourceId, memoId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+
+        verify(studyMemoService).deleteMemo(TEMP_USER_ID, resourceId, memoId);
     }
 }
