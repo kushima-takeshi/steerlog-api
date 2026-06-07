@@ -308,13 +308,19 @@ Section の一覧（`sectionOrder` 昇順）。StudyStatus は含めない。
 PATCH /resources/{resourceId}/sections/{sectionId}
 ```
 
-### 更新可能
+### 更新可能候補
 
 ```text
-parentSectionId
 title
-displayOrder
-level
+sectionOrder
+```
+
+注記：
+
+```text
+parentSectionId / displayOrder / level は現在の resource_sections には未実装
+Section階層化や表示順の再設計が必要になった場合に再検討する
+現時点では sectionOrder を使う
 ```
 
 ---
