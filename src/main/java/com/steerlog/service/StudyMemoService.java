@@ -2,9 +2,12 @@ package com.steerlog.service;
 
 import com.steerlog.dto.request.CreateStudyMemoRequest;
 import com.steerlog.dto.response.StudyMemoResponse;
+import com.steerlog.entity.Progress;
+import com.steerlog.entity.ProgressStatus;
 import com.steerlog.entity.StudyMemo;
 import com.steerlog.entity.StudyMemoType;
 import com.steerlog.exception.ResourceNotFoundException;
+import com.steerlog.repository.ProgressRepository;
 import com.steerlog.repository.ResourceRepository;
 import com.steerlog.repository.ResourceSectionRepository;
 import com.steerlog.repository.StudyMemoRepository;
@@ -20,14 +23,17 @@ public class StudyMemoService {
     private final ResourceRepository resourceRepository;
     private final ResourceSectionRepository resourceSectionRepository;
     private final StudyMemoRepository studyMemoRepository;
+    private final ProgressRepository progressRepository;
 
     public StudyMemoService(
             ResourceRepository resourceRepository,
             ResourceSectionRepository resourceSectionRepository,
-            StudyMemoRepository studyMemoRepository) {
+            StudyMemoRepository studyMemoRepository,
+            ProgressRepository progressRepository) {
         this.resourceRepository = resourceRepository;
         this.resourceSectionRepository = resourceSectionRepository;
         this.studyMemoRepository = studyMemoRepository;
+        this.progressRepository = progressRepository;
     }
 
     @Transactional
@@ -43,6 +49,10 @@ public class StudyMemoService {
                     .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
         }
 
+        Progress progress = progressRepository
+                .findByUserIdAndResourceId(userId, resourceId)
+                .orElseThrow(() -> new RuntimeException("Progress not found"));
+
         Instant now = Instant.now();
 
         StudyMemo memo = new StudyMemo();
@@ -56,6 +66,13 @@ public class StudyMemoService {
         memo.setUpdatedAt(now);
 
         StudyMemo savedMemo = studyMemoRepository.save(memo);
+
+        if (progress.getStatus() == ProgressStatus.NOT_STARTED) {
+            progress.setStatus(ProgressStatus.IN_PROGRESS);
+        }
+        progress.setLastStudiedAt(now);
+        progress.setUpdatedAt(now);
+        progressRepository.save(progress);
 
         return toStudyMemoResponse(savedMemo);
     }

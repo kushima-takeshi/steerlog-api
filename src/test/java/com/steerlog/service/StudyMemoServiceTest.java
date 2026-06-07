@@ -2,12 +2,15 @@ package com.steerlog.service;
 
 import com.steerlog.dto.request.CreateStudyMemoRequest;
 import com.steerlog.dto.response.StudyMemoResponse;
+import com.steerlog.entity.Progress;
+import com.steerlog.entity.ProgressStatus;
 import com.steerlog.entity.Resource;
 import com.steerlog.entity.ResourceSection;
 import com.steerlog.entity.ResourceType;
 import com.steerlog.entity.StudyMemo;
 import com.steerlog.entity.StudyMemoType;
 import com.steerlog.exception.ResourceNotFoundException;
+import com.steerlog.repository.ProgressRepository;
 import com.steerlog.repository.ResourceRepository;
 import com.steerlog.repository.ResourceSectionRepository;
 import com.steerlog.repository.StudyMemoRepository;
@@ -42,15 +45,19 @@ class StudyMemoServiceTest {
     @Mock
     private StudyMemoRepository studyMemoRepository;
 
+    @Mock
+    private ProgressRepository progressRepository;
+
     @InjectMocks
     private StudyMemoService studyMemoService;
 
     @Test
-    void createMemo_shouldCreateMemo() {
+    void createMemo_shouldCreateMemoAndUpdateProgress() {
         Long userId = 1L;
         Long resourceId = 10L;
 
         Resource resource = buildResource(resourceId, userId);
+        Progress progress = buildProgress(300L, userId, resourceId);
 
         CreateStudyMemoRequest request = new CreateStudyMemoRequest();
         request.setContent("HTTPの基本を理解した");
@@ -58,11 +65,14 @@ class StudyMemoServiceTest {
 
         when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
                 .thenReturn(Optional.of(resource));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.of(progress));
         when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> {
             StudyMemo memo = invocation.getArgument(0);
             memo.setStudyMemoId(500L);
             return memo;
         });
+        when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         StudyMemoResponse response = studyMemoService.createMemo(userId, resourceId, request);
 
@@ -79,10 +89,49 @@ class StudyMemoServiceTest {
         assertThat(savedMemo.getCreatedAt()).isNotNull();
         assertThat(savedMemo.getUpdatedAt()).isNotNull();
 
+        ArgumentCaptor<Progress> progressCaptor = ArgumentCaptor.forClass(Progress.class);
+        verify(progressRepository).save(progressCaptor.capture());
+
+        Progress savedProgress = progressCaptor.getValue();
+        assertThat(savedProgress.getStatus()).isEqualTo(ProgressStatus.IN_PROGRESS);
+        assertThat(savedProgress.getLastStudiedAt()).isNotNull();
+        assertThat(savedProgress.getUpdatedAt()).isNotNull();
+        assertThat(savedProgress.getCurrentLevel()).isEqualTo(0);
+
         assertThat(response.getStudyMemoId()).isEqualTo(500L);
         assertThat(response.getResourceId()).isEqualTo(resourceId);
         assertThat(response.getMemoType()).isEqualTo(StudyMemoType.LEARNED);
         assertThat(response.getContent()).isEqualTo("HTTPの基本を理解した");
+    }
+
+    @Test
+    void createMemo_shouldNotChangeProgressStatusWhenAlreadyInProgress() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+
+        Resource resource = buildResource(resourceId, userId);
+        Progress progress = buildProgress(300L, userId, resourceId);
+        progress.setStatus(ProgressStatus.IN_PROGRESS);
+
+        CreateStudyMemoRequest request = new CreateStudyMemoRequest();
+        request.setContent("メモ内容");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.of(progress));
+        when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        studyMemoService.createMemo(userId, resourceId, request);
+
+        ArgumentCaptor<Progress> progressCaptor = ArgumentCaptor.forClass(Progress.class);
+        verify(progressRepository).save(progressCaptor.capture());
+
+        Progress savedProgress = progressCaptor.getValue();
+        assertThat(savedProgress.getStatus()).isEqualTo(ProgressStatus.IN_PROGRESS);
+        assertThat(savedProgress.getLastStudiedAt()).isNotNull();
+        assertThat(savedProgress.getUpdatedAt()).isNotNull();
     }
 
     @Test
@@ -97,7 +146,10 @@ class StudyMemoServiceTest {
 
         when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
                 .thenReturn(Optional.of(resource));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.of(buildProgress(300L, userId, resourceId)));
         when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         studyMemoService.createMemo(userId, resourceId, request);
 
@@ -125,7 +177,10 @@ class StudyMemoServiceTest {
         when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
                 resourceSectionId, userId, resourceId))
                 .thenReturn(Optional.of(section));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.of(buildProgress(300L, userId, resourceId)));
         when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         studyMemoService.createMemo(userId, resourceId, request);
 
@@ -154,7 +209,32 @@ class StudyMemoServiceTest {
                 .hasMessage("Resource not found");
 
         verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(progressRepository, never()).findByUserIdAndResourceId(any(), any());
         verify(studyMemoRepository, never()).save(any(StudyMemo.class));
+    }
+
+    @Test
+    void createMemo_shouldThrowRuntimeExceptionWhenProgressNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+
+        Resource resource = buildResource(resourceId, userId);
+
+        CreateStudyMemoRequest request = new CreateStudyMemoRequest();
+        request.setContent("メモ内容");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studyMemoService.createMemo(userId, resourceId, request))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Progress not found");
+
+        verify(progressRepository).findByUserIdAndResourceId(userId, resourceId);
+        verify(studyMemoRepository, never()).save(any(StudyMemo.class));
+        verify(progressRepository, never()).save(any(Progress.class));
     }
 
     @Test
@@ -181,6 +261,7 @@ class StudyMemoServiceTest {
 
         verify(resourceSectionRepository).findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
                 resourceSectionId, userId, resourceId);
+        verify(progressRepository, never()).findByUserIdAndResourceId(any(), any());
         verify(studyMemoRepository, never()).save(any(StudyMemo.class));
     }
 
@@ -203,6 +284,7 @@ class StudyMemoServiceTest {
 
         verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
         verify(studyMemoRepository).findByUserIdAndResourceIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId, resourceId);
+        verify(progressRepository, never()).findByUserIdAndResourceId(any(), any());
 
         assertThat(responses).hasSize(2);
         assertThat(responses.get(0).getStudyMemoId()).isEqualTo(500L);
@@ -229,6 +311,7 @@ class StudyMemoServiceTest {
 
         verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
         verify(studyMemoRepository).findByUserIdAndResourceIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId, resourceId);
+        verify(progressRepository, never()).findByUserIdAndResourceId(any(), any());
 
         assertThat(responses).isEmpty();
     }
@@ -273,6 +356,19 @@ class StudyMemoServiceTest {
         section.setCreatedAt(now);
         section.setUpdatedAt(now);
         return section;
+    }
+
+    private Progress buildProgress(Long progressId, Long userId, Long resourceId) {
+        Instant now = Instant.parse("2026-06-01T10:00:00Z");
+        Progress progress = new Progress();
+        progress.setProgressId(progressId);
+        progress.setUserId(userId);
+        progress.setResourceId(resourceId);
+        progress.setStatus(ProgressStatus.NOT_STARTED);
+        progress.setCurrentLevel(0);
+        progress.setCreatedAt(now);
+        progress.setUpdatedAt(now);
+        return progress;
     }
 
     private StudyMemo buildMemo(
