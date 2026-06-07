@@ -1,6 +1,7 @@
 package com.steerlog.service;
 
 import com.steerlog.dto.request.CreateStudyMemoRequest;
+import com.steerlog.dto.request.UpdateStudyMemoRequest;
 import com.steerlog.dto.response.StudyMemoResponse;
 import com.steerlog.entity.Progress;
 import com.steerlog.entity.ProgressStatus;
@@ -331,6 +332,119 @@ class StudyMemoServiceTest {
         verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
         verify(studyMemoRepository, never())
                 .findByUserIdAndResourceIdAndDeletedAtIsNullOrderByCreatedAtDesc(any(), any());
+    }
+
+    @Test
+    void updateMemo_shouldUpdateOnlyProvidedFields() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long studyMemoId = 500L;
+        Instant before = Instant.parse("2026-06-03T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId);
+        StudyMemo memo = buildMemo(studyMemoId, userId, resourceId, null, StudyMemoType.GENERAL, "旧メモ", before);
+
+        UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
+        request.setContent("新メモ");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(studyMemoRepository.findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                studyMemoId, userId, resourceId))
+                .thenReturn(Optional.of(memo));
+        when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudyMemoResponse response = studyMemoService.updateMemo(userId, resourceId, studyMemoId, request);
+
+        ArgumentCaptor<StudyMemo> memoCaptor = ArgumentCaptor.forClass(StudyMemo.class);
+        verify(studyMemoRepository).save(memoCaptor.capture());
+
+        StudyMemo savedMemo = memoCaptor.getValue();
+        assertThat(savedMemo.getContent()).isEqualTo("新メモ");
+        assertThat(savedMemo.getMemoType()).isEqualTo(StudyMemoType.GENERAL);
+        assertThat(savedMemo.getUpdatedAt()).isNotNull();
+        assertThat(savedMemo.getUpdatedAt()).isAfter(before);
+
+        assertThat(response.getStudyMemoId()).isEqualTo(studyMemoId);
+        assertThat(response.getContent()).isEqualTo("新メモ");
+        assertThat(response.getMemoType()).isEqualTo(StudyMemoType.GENERAL);
+    }
+
+    @Test
+    void updateMemo_shouldUpdateMemoType() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long studyMemoId = 500L;
+        Instant before = Instant.parse("2026-06-03T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId);
+        StudyMemo memo = buildMemo(studyMemoId, userId, resourceId, null, StudyMemoType.GENERAL, "メモ内容", before);
+
+        UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
+        request.setMemoType(StudyMemoType.QUESTION);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(studyMemoRepository.findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                studyMemoId, userId, resourceId))
+                .thenReturn(Optional.of(memo));
+        when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        studyMemoService.updateMemo(userId, resourceId, studyMemoId, request);
+
+        ArgumentCaptor<StudyMemo> memoCaptor = ArgumentCaptor.forClass(StudyMemo.class);
+        verify(studyMemoRepository).save(memoCaptor.capture());
+
+        assertThat(memoCaptor.getValue().getMemoType()).isEqualTo(StudyMemoType.QUESTION);
+        assertThat(memoCaptor.getValue().getContent()).isEqualTo("メモ内容");
+    }
+
+    @Test
+    void updateMemo_shouldThrowResourceNotFoundExceptionWhenResourceNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long studyMemoId = 500L;
+
+        UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
+        request.setContent("新メモ");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studyMemoService.updateMemo(userId, resourceId, studyMemoId, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(studyMemoRepository, never())
+                .findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(any(), any(), any());
+        verify(studyMemoRepository, never()).save(any(StudyMemo.class));
+    }
+
+    @Test
+    void updateMemo_shouldThrowResourceNotFoundExceptionWhenMemoNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long studyMemoId = 500L;
+
+        Resource resource = buildResource(resourceId, userId);
+
+        UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
+        request.setContent("新メモ");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(studyMemoRepository.findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                studyMemoId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studyMemoService.updateMemo(userId, resourceId, studyMemoId, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(studyMemoRepository).findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                studyMemoId, userId, resourceId);
+        verify(studyMemoRepository, never()).save(any(StudyMemo.class));
     }
 
     @Test

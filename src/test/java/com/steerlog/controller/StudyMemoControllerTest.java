@@ -2,6 +2,7 @@ package com.steerlog.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.steerlog.dto.request.CreateStudyMemoRequest;
+import com.steerlog.dto.request.UpdateStudyMemoRequest;
 import com.steerlog.dto.response.StudyMemoResponse;
 import com.steerlog.entity.StudyMemoType;
 import com.steerlog.exception.GlobalExceptionHandler;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -136,6 +138,59 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
         verify(studyMemoService).createMemo(eq(TEMP_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class));
+    }
+
+    @Test
+    void updateMemo_shouldReturn200() throws Exception {
+        Long resourceId = 10L;
+        Long memoId = 500L;
+        Instant now = Instant.parse("2026-06-03T10:00:00Z");
+
+        UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
+        request.setContent("更新後メモ");
+        request.setMemoType(StudyMemoType.QUESTION);
+
+        StudyMemoResponse response = new StudyMemoResponse();
+        response.setStudyMemoId(memoId);
+        response.setResourceId(resourceId);
+        response.setMemoType(StudyMemoType.QUESTION);
+        response.setContent("更新後メモ");
+        response.setCreatedAt(now);
+        response.setUpdatedAt(now);
+
+        when(studyMemoService.updateMemo(eq(TEMP_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(patch("/resources/{resourceId}/memos/{memoId}", resourceId, memoId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studyMemoId").value(500))
+                .andExpect(jsonPath("$.memoType").value("QUESTION"))
+                .andExpect(jsonPath("$.content").value("更新後メモ"));
+
+        verify(studyMemoService).updateMemo(eq(TEMP_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class));
+    }
+
+    @Test
+    void updateMemo_shouldReturn404WhenMemoNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long memoId = 500L;
+
+        UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
+        request.setContent("更新後メモ");
+
+        when(studyMemoService.updateMemo(eq(TEMP_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Resource not found"));
+
+        mockMvc.perform(patch("/resources/{resourceId}/memos/{memoId}", resourceId, memoId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+
+        verify(studyMemoService).updateMemo(eq(TEMP_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class));
     }
 
     @Test

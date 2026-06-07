@@ -1,6 +1,7 @@
 package com.steerlog.service;
 
 import com.steerlog.dto.request.CreateStudyMemoRequest;
+import com.steerlog.dto.request.UpdateStudyMemoRequest;
 import com.steerlog.dto.response.StudyMemoResponse;
 import com.steerlog.entity.Progress;
 import com.steerlog.entity.ProgressStatus;
@@ -105,6 +106,32 @@ public class StudyMemoService {
         memo.setDeletedAt(now);
         memo.setUpdatedAt(now);
         studyMemoRepository.save(memo);
+    }
+
+    @Transactional
+    public StudyMemoResponse updateMemo(
+            Long userId, Long resourceId, Long studyMemoId, UpdateStudyMemoRequest request) {
+        resourceRepository
+                .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        StudyMemo memo = studyMemoRepository
+                .findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(studyMemoId, userId, resourceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        Instant now = Instant.now();
+
+        if (request.getMemoType() != null) {
+            memo.setMemoType(request.getMemoType());
+        }
+        if (request.getContent() != null) {
+            memo.setContent(request.getContent());
+        }
+        memo.setUpdatedAt(now);
+
+        StudyMemo savedMemo = studyMemoRepository.save(memo);
+
+        return toStudyMemoResponse(savedMemo);
     }
 
     private StudyMemoResponse toStudyMemoResponse(StudyMemo memo) {

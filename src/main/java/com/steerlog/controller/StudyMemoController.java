@@ -1,6 +1,7 @@
 package com.steerlog.controller;
 
 import com.steerlog.dto.request.CreateStudyMemoRequest;
+import com.steerlog.dto.request.UpdateStudyMemoRequest;
 import com.steerlog.dto.response.StudyMemoResponse;
 import com.steerlog.service.StudyMemoService;
 import jakarta.validation.Valid;
@@ -8,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,6 +42,15 @@ public class StudyMemoController {
     public ResponseEntity<List<StudyMemoResponse>> getMemos(@PathVariable Long resourceId) {
         List<StudyMemoResponse> responses = studyMemoService.getMemos(TEMP_USER_ID, resourceId);
         return ResponseEntity.ok(responses);
+    }
+
+    @PatchMapping("/{memoId}")
+    public ResponseEntity<StudyMemoResponse> updateMemo(
+            @PathVariable Long resourceId,
+            @PathVariable Long memoId,
+            @Valid @RequestBody UpdateStudyMemoRequest request) {
+        StudyMemoResponse response = studyMemoService.updateMemo(TEMP_USER_ID, resourceId, memoId, request);
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{memoId}")
