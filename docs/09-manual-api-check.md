@@ -281,3 +281,33 @@ LearningSession 関連 API 一式
 LearningSessionRecord 保存 API
 Resource 詳細への Sections / Memos / Records 統合表示
 ```
+
+---
+
+## 手動確認履歴
+
+| 項目 | 内容 |
+|------|------|
+| 実施日 | 2026-06-07 |
+| 環境 | local / localhost:8080 / PostgreSQL Docker Compose |
+| 前提 | DB を初期化した状態から確認 |
+
+### 確認した項目
+
+```text
+Resource 作成
+Progress 自動作成
+Section 作成
+SectionStudyStatus 自動作成
+SectionStudyStatus 更新
+全 Section 学習済みによる Lv.1 自動到達
+Progress 取得
+LevelHistory 取得
+StudyMemo 作成
+StudyMemo 一覧取得
+StudyMemo 更新
+StudyMemo 論理削除
+存在しない Resource で 404 確認
+```
+
+**結果:** 期待通り動作
