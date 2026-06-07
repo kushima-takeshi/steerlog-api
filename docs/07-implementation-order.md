@@ -346,9 +346,17 @@ Service tests
 目的はまず以下の状態遷移を動かすこと。
 
 ```text
-IN_PROGRESS
-→ COMPLETED
-→ DISCARDED
+IN_PROGRESS → COMPLETED
+IN_PROGRESS → DISCARDED
+COMPLETED → RECORD_SAVED
+COMPLETED → DISCARDED
+```
+
+補足：
+
+```text
+COMPLETED 後は、正式証跡として保存する RECORD_SAVED ルートと、保存せず破棄する DISCARDED ルートがある
+MVPでは長期resumeよりも、discardしてやり直せる流れを優先する
 ```
 
 ## 8.6 完了条件
