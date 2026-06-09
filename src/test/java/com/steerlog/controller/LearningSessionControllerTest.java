@@ -2,13 +2,16 @@ package com.steerlog.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.steerlog.dto.request.StartLearningSessionRequest;
+import com.steerlog.dto.request.SubmitLearningSessionResponseRequest;
 import com.steerlog.dto.response.DiscardLearningSessionResponse;
+import com.steerlog.dto.response.SubmitLearningSessionResponseResponse;
 import com.steerlog.dto.response.LearningSessionNextActionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionStepResponse;
 import com.steerlog.entity.LearningSessionStatus;
 import com.steerlog.entity.LearningSessionType;
 import com.steerlog.exception.GlobalExceptionHandler;
+import com.steerlog.exception.LearningSessionCannotAcceptResponseException;
 import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
 import com.steerlog.exception.LearningSessionNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
@@ -191,5 +194,128 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.message").value("Learning session cannot be discarded"));
 
         verify(learningSessionService).discardSession(TEMP_USER_ID, resourceId, learningSessionId);
+    }
+
+    @Test
+    void submitResponse_shouldReturn200() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 800L;
+        Instant updatedAt = Instant.parse("2026-06-08T12:00:00Z");
+
+        SubmitLearningSessionResponseRequest request = new SubmitLearningSessionResponseRequest();
+        request.setResponseText("REST APIの基本を説明した");
+
+        LearningSessionStepResponse step = new LearningSessionStepResponse();
+        step.setCurrentStep(2);
+        step.setTotalSteps(3);
+        step.setIsFinalStep(false);
+
+        LearningSessionNextActionResponse nextAction = new LearningSessionNextActionResponse();
+        nextAction.setType("SUBMIT_RESPONSE");
+
+        SubmitLearningSessionResponseResponse response = new SubmitLearningSessionResponseResponse();
+        response.setLearningSessionId(learningSessionId);
+        response.setResourceId(resourceId);
+        response.setSessionType(LearningSessionType.IMMEDIATE_REFLECTION);
+        response.setStatus(LearningSessionStatus.IN_PROGRESS);
+        response.setAiPrompt("なぜそれが重要だと思ったか、具体例を交えて説明してください。");
+        response.setStep(step);
+        response.setNextAction(nextAction);
+        response.setUpdatedAt(updatedAt);
+
+        when(learningSessionService.submitResponse(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SubmitLearningSessionResponseRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/responses",
+                        resourceId, learningSessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.learningSessionId").value(800))
+                .andExpect(jsonPath("$.resourceId").value(10))
+                .andExpect(jsonPath("$.sessionType").value("IMMEDIATE_REFLECTION"))
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.aiPrompt")
+                        .value("なぜそれが重要だと思ったか、具体例を交えて説明してください。"))
+                .andExpect(jsonPath("$.step.currentStep").value(2))
+                .andExpect(jsonPath("$.step.totalSteps").value(3))
+                .andExpect(jsonPath("$.step.isFinalStep").value(false))
+                .andExpect(jsonPath("$.nextAction.type").value("SUBMIT_RESPONSE"))
+                .andExpect(jsonPath("$.updatedAt").value("2026-06-08T12:00:00Z"));
+
+        verify(learningSessionService).submitResponse(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SubmitLearningSessionResponseRequest.class));
+    }
+
+    @Test
+    void submitResponse_shouldReturn400WhenResponseTextEmpty() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 800L;
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/responses",
+                        resourceId, learningSessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"responseText\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void submitResponse_shouldReturn404WhenSessionNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 800L;
+
+        SubmitLearningSessionResponseRequest request = new SubmitLearningSessionResponseRequest();
+        request.setResponseText("回答本文");
+
+        when(learningSessionService.submitResponse(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SubmitLearningSessionResponseRequest.class)))
+                .thenThrow(new LearningSessionNotFoundException("Learning session not found"));
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/responses",
+                        resourceId, learningSessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LEARNING_SESSION_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Learning session not found"));
+
+        verify(learningSessionService).submitResponse(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SubmitLearningSessionResponseRequest.class));
+    }
+
+    @Test
+    void submitResponse_shouldReturn400WhenSessionCannotAcceptResponse() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 800L;
+
+        SubmitLearningSessionResponseRequest request = new SubmitLearningSessionResponseRequest();
+        request.setResponseText("回答本文");
+
+        when(learningSessionService.submitResponse(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SubmitLearningSessionResponseRequest.class)))
+                .thenThrow(new LearningSessionCannotAcceptResponseException(
+                        "Learning session cannot accept response"));
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/responses",
+                        resourceId, learningSessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("LEARNING_SESSION_CANNOT_ACCEPT_RESPONSE"))
+                .andExpect(jsonPath("$.message").value("Learning session cannot accept response"));
+
+        verify(learningSessionService).submitResponse(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SubmitLearningSessionResponseRequest.class));
     }
 }
