@@ -32,4 +32,17 @@ public class GlobalExceptionHandler {
         ErrorResponse body = new ErrorResponse("SESSION_ALREADY_IN_PROGRESS", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
+
+    @ExceptionHandler(LearningSessionNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleLearningSessionNotFound(LearningSessionNotFoundException ex) {
+        ErrorResponse body = new ErrorResponse("LEARNING_SESSION_NOT_FOUND", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler(LearningSessionCannotBeDiscardedException.class)
+    public ResponseEntity<ErrorResponse> handleLearningSessionCannotBeDiscarded(
+            LearningSessionCannotBeDiscardedException ex) {
+        ErrorResponse body = new ErrorResponse("LEARNING_SESSION_CANNOT_BE_DISCARDED", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
 }

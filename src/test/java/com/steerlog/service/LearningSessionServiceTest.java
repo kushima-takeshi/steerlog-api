@@ -1,6 +1,7 @@
 package com.steerlog.service;
 
 import com.steerlog.dto.request.StartLearningSessionRequest;
+import com.steerlog.dto.response.DiscardLearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
 import com.steerlog.entity.LearningSession;
 import com.steerlog.entity.LearningSessionStatus;
@@ -10,6 +11,8 @@ import com.steerlog.entity.ProgressStatus;
 import com.steerlog.entity.Resource;
 import com.steerlog.entity.ResourceType;
 import com.steerlog.exception.LevelRequirementNotMetException;
+import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
+import com.steerlog.exception.LearningSessionNotFoundException;
 import com.steerlog.exception.ProgressNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.exception.SessionAlreadyInProgressException;
@@ -227,6 +230,215 @@ class LearningSessionServiceTest {
         assertThat(savedSession.getStartedAt()).isNotNull();
         assertThat(savedSession.getCreatedAt()).isNotNull();
         assertThat(savedSession.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void discardSession_shouldDiscardInProgressSession() {
+        Long userId = 1L;
+        Long learningSessionId = 700L;
+        Long resourceId = 10L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        DiscardLearningSessionResponse response =
+                learningSessionService.discardSession(userId, resourceId, learningSessionId);
+
+        ArgumentCaptor<LearningSession> sessionCaptor = ArgumentCaptor.forClass(LearningSession.class);
+        verify(learningSessionRepository).save(sessionCaptor.capture());
+
+        LearningSession savedSession = sessionCaptor.getValue();
+        assertThat(savedSession.getStatus()).isEqualTo(LearningSessionStatus.DISCARDED);
+        assertThat(savedSession.getCompletedAt()).isNull();
+
+        assertThat(response.getLearningSessionId()).isEqualTo(learningSessionId);
+        assertThat(response.getResourceId()).isEqualTo(resourceId);
+        assertThat(response.getSessionType()).isEqualTo(LearningSessionType.IMMEDIATE_REFLECTION);
+        assertThat(response.getStatus()).isEqualTo(LearningSessionStatus.DISCARDED);
+        assertThat(response.getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void discardSession_shouldDiscardCompletedSession() {
+        Long userId = 1L;
+        Long learningSessionId = 701L;
+        Long resourceId = 10L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+        Instant completedAt = Instant.parse("2026-06-08T11:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        DiscardLearningSessionResponse response =
+                learningSessionService.discardSession(userId, resourceId, learningSessionId);
+
+        ArgumentCaptor<LearningSession> sessionCaptor = ArgumentCaptor.forClass(LearningSession.class);
+        verify(learningSessionRepository).save(sessionCaptor.capture());
+
+        assertThat(sessionCaptor.getValue().getStatus()).isEqualTo(LearningSessionStatus.DISCARDED);
+        assertThat(sessionCaptor.getValue().getCompletedAt()).isEqualTo(completedAt);
+        assertThat(response.getStatus()).isEqualTo(LearningSessionStatus.DISCARDED);
+    }
+
+    @Test
+    void discardSession_shouldRejectRecordSavedSession() {
+        Long userId = 1L;
+        Long learningSessionId = 702L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, 10L,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.RECORD_SAVED,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, 10L))
+                .thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> learningSessionService.discardSession(userId, 10L, learningSessionId))
+                .isInstanceOf(LearningSessionCannotBeDiscardedException.class)
+                .hasMessage("Learning session cannot be discarded");
+
+        verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    @Test
+    void discardSession_shouldRejectAlreadyDiscardedSession() {
+        Long userId = 1L;
+        Long learningSessionId = 703L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, 10L,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.DISCARDED,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, 10L))
+                .thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> learningSessionService.discardSession(userId, 10L, learningSessionId))
+                .isInstanceOf(LearningSessionCannotBeDiscardedException.class)
+                .hasMessage("Learning session cannot be discarded");
+
+        verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    @Test
+    void discardSession_shouldThrowLearningSessionNotFoundExceptionWhenSessionNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 704L;
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> learningSessionService.discardSession(userId, resourceId, learningSessionId))
+                .isInstanceOf(LearningSessionNotFoundException.class)
+                .hasMessage("Learning session not found");
+
+        verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    @Test
+    void discardSession_shouldNotChangeCompletedAt() {
+        Long userId = 1L;
+        Long learningSessionId = 705L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+        Instant completedAt = Instant.parse("2026-06-08T11:00:00Z");
+
+        LearningSession inProgressSession = buildLearningSession(
+                learningSessionId, userId, 10L,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, 10L))
+                .thenReturn(Optional.of(inProgressSession));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        learningSessionService.discardSession(userId, 10L, learningSessionId);
+
+        ArgumentCaptor<LearningSession> sessionCaptor = ArgumentCaptor.forClass(LearningSession.class);
+        verify(learningSessionRepository).save(sessionCaptor.capture());
+
+        assertThat(sessionCaptor.getValue().getCompletedAt()).isNull();
+    }
+
+    @Test
+    void discardSession_shouldUpdateUpdatedAt() {
+        Long userId = 1L;
+        Long learningSessionId = 706L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, 10L,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, 10L))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        learningSessionService.discardSession(userId, 10L, learningSessionId);
+
+        ArgumentCaptor<LearningSession> sessionCaptor = ArgumentCaptor.forClass(LearningSession.class);
+        verify(learningSessionRepository).save(sessionCaptor.capture());
+
+        assertThat(sessionCaptor.getValue().getUpdatedAt()).isNotNull();
+        assertThat(sessionCaptor.getValue().getUpdatedAt()).isAfter(before);
+    }
+
+    private LearningSession buildLearningSession(
+            Long learningSessionId,
+            Long userId,
+            Long resourceId,
+            LearningSessionType sessionType,
+            LearningSessionStatus status,
+            Instant completedAt,
+            Instant updatedAt) {
+        LearningSession session = new LearningSession();
+        session.setLearningSessionId(learningSessionId);
+        session.setUserId(userId);
+        session.setResourceId(resourceId);
+        session.setSessionType(sessionType);
+        session.setStatus(status);
+        session.setCurrentStep(1);
+        session.setTotalSteps(3);
+        session.setStartedAt(updatedAt);
+        session.setCompletedAt(completedAt);
+        session.setCreatedAt(updatedAt);
+        session.setUpdatedAt(updatedAt);
+        return session;
     }
 
     private Resource buildResource(Long resourceId, Long userId) {
