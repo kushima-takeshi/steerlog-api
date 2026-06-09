@@ -1,6 +1,7 @@
 package com.steerlog.controller;
 
 import com.steerlog.dto.request.StartLearningSessionRequest;
+import com.steerlog.dto.response.DiscardLearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
 import com.steerlog.service.LearningSessionService;
 import jakarta.validation.Valid;
@@ -31,5 +32,14 @@ public class LearningSessionController {
         LearningSessionResponse response =
                 learningSessionService.startSession(TEMP_USER_ID, resourceId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/{learningSessionId}/discard")
+    public ResponseEntity<DiscardLearningSessionResponse> discardSession(
+            @PathVariable Long resourceId,
+            @PathVariable Long learningSessionId) {
+        DiscardLearningSessionResponse response =
+                learningSessionService.discardSession(TEMP_USER_ID, resourceId, learningSessionId);
+        return ResponseEntity.ok(response);
     }
 }

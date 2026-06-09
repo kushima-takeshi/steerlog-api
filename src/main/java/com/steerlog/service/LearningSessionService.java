@@ -1,6 +1,7 @@
 package com.steerlog.service;
 
 import com.steerlog.dto.request.StartLearningSessionRequest;
+import com.steerlog.dto.response.DiscardLearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionNextActionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionStepResponse;
@@ -9,6 +10,8 @@ import com.steerlog.entity.LearningSessionStatus;
 import com.steerlog.entity.LearningSessionType;
 import com.steerlog.entity.Progress;
 import com.steerlog.exception.LevelRequirementNotMetException;
+import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
+import com.steerlog.exception.LearningSessionNotFoundException;
 import com.steerlog.exception.ProgressNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.exception.SessionAlreadyInProgressException;
@@ -90,6 +93,37 @@ public class LearningSessionService {
         LearningSession savedSession = learningSessionRepository.save(session);
 
         return toLearningSessionResponse(savedSession);
+    }
+
+    @Transactional
+    public DiscardLearningSessionResponse discardSession(
+            Long userId, Long resourceId, Long learningSessionId) {
+        LearningSession session = learningSessionRepository
+                .findByLearningSessionIdAndUserIdAndResourceId(learningSessionId, userId, resourceId)
+                .orElseThrow(() -> new LearningSessionNotFoundException("Learning session not found"));
+
+        LearningSessionStatus status = session.getStatus();
+        if (status == LearningSessionStatus.RECORD_SAVED || status == LearningSessionStatus.DISCARDED) {
+            throw new LearningSessionCannotBeDiscardedException("Learning session cannot be discarded");
+        }
+
+        Instant now = Instant.now();
+        session.setStatus(LearningSessionStatus.DISCARDED);
+        session.setUpdatedAt(now);
+
+        LearningSession savedSession = learningSessionRepository.save(session);
+
+        return toDiscardLearningSessionResponse(savedSession);
+    }
+
+    private DiscardLearningSessionResponse toDiscardLearningSessionResponse(LearningSession session) {
+        DiscardLearningSessionResponse response = new DiscardLearningSessionResponse();
+        response.setLearningSessionId(session.getLearningSessionId());
+        response.setResourceId(session.getResourceId());
+        response.setSessionType(session.getSessionType());
+        response.setStatus(session.getStatus());
+        response.setUpdatedAt(session.getUpdatedAt());
+        return response;
     }
 
     private LearningSessionResponse toLearningSessionResponse(LearningSession session) {

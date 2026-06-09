@@ -2,12 +2,15 @@ package com.steerlog.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.steerlog.dto.request.StartLearningSessionRequest;
+import com.steerlog.dto.response.DiscardLearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionNextActionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionStepResponse;
 import com.steerlog.entity.LearningSessionStatus;
 import com.steerlog.entity.LearningSessionType;
 import com.steerlog.exception.GlobalExceptionHandler;
+import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
+import com.steerlog.exception.LearningSessionNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.service.LearningSessionService;
 import org.junit.jupiter.api.Test;
@@ -123,5 +126,70 @@ class LearningSessionControllerTest {
 
         verify(learningSessionService).startSession(
                 eq(TEMP_USER_ID), eq(resourceId), any(StartLearningSessionRequest.class));
+    }
+
+    @Test
+    void discardSession_shouldReturn200() throws Exception {
+        Long learningSessionId = 700L;
+        Long resourceId = 10L;
+        Instant updatedAt = Instant.parse("2026-06-08T12:00:00Z");
+
+        DiscardLearningSessionResponse response = new DiscardLearningSessionResponse();
+        response.setLearningSessionId(learningSessionId);
+        response.setResourceId(resourceId);
+        response.setSessionType(LearningSessionType.IMMEDIATE_REFLECTION);
+        response.setStatus(LearningSessionStatus.DISCARDED);
+        response.setUpdatedAt(updatedAt);
+
+        when(learningSessionService.discardSession(TEMP_USER_ID, resourceId, learningSessionId))
+                .thenReturn(response);
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/discard",
+                        resourceId, learningSessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.learningSessionId").value(700))
+                .andExpect(jsonPath("$.resourceId").value(10))
+                .andExpect(jsonPath("$.sessionType").value("IMMEDIATE_REFLECTION"))
+                .andExpect(jsonPath("$.status").value("DISCARDED"))
+                .andExpect(jsonPath("$.updatedAt").value("2026-06-08T12:00:00Z"));
+
+        verify(learningSessionService).discardSession(TEMP_USER_ID, resourceId, learningSessionId);
+    }
+
+    @Test
+    void discardSession_shouldReturn404WhenSessionNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 700L;
+
+        when(learningSessionService.discardSession(TEMP_USER_ID, resourceId, learningSessionId))
+                .thenThrow(new LearningSessionNotFoundException("Learning session not found"));
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/discard",
+                        resourceId, learningSessionId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LEARNING_SESSION_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Learning session not found"));
+
+        verify(learningSessionService).discardSession(TEMP_USER_ID, resourceId, learningSessionId);
+    }
+
+    @Test
+    void discardSession_shouldReturn400WhenSessionCannotBeDiscarded() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 700L;
+
+        when(learningSessionService.discardSession(TEMP_USER_ID, resourceId, learningSessionId))
+                .thenThrow(new LearningSessionCannotBeDiscardedException("Learning session cannot be discarded"));
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/discard",
+                        resourceId, learningSessionId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("LEARNING_SESSION_CANNOT_BE_DISCARDED"))
+                .andExpect(jsonPath("$.message").value("Learning session cannot be discarded"));
+
+        verify(learningSessionService).discardSession(TEMP_USER_ID, resourceId, learningSessionId);
     }
 }

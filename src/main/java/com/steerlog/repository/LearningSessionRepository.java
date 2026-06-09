@@ -18,4 +18,7 @@ public interface LearningSessionRepository extends JpaRepository<LearningSession
 
     Optional<LearningSession> findByLearningSessionIdAndUserId(
             Long learningSessionId, Long userId);
+
+    Optional<LearningSession> findByLearningSessionIdAndUserIdAndResourceId(
+            Long learningSessionId, Long userId, Long resourceId);
 }
