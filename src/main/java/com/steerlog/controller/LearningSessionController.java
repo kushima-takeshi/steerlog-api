@@ -1,8 +1,10 @@
 package com.steerlog.controller;
 
 import com.steerlog.dto.request.StartLearningSessionRequest;
+import com.steerlog.dto.request.SubmitLearningSessionResponseRequest;
 import com.steerlog.dto.response.DiscardLearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
+import com.steerlog.dto.response.SubmitLearningSessionResponseResponse;
 import com.steerlog.service.LearningSessionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -40,6 +42,16 @@ public class LearningSessionController {
             @PathVariable Long learningSessionId) {
         DiscardLearningSessionResponse response =
                 learningSessionService.discardSession(TEMP_USER_ID, resourceId, learningSessionId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{learningSessionId}/responses")
+    public ResponseEntity<SubmitLearningSessionResponseResponse> submitResponse(
+            @PathVariable Long resourceId,
+            @PathVariable Long learningSessionId,
+            @Valid @RequestBody SubmitLearningSessionResponseRequest request) {
+        SubmitLearningSessionResponseResponse response = learningSessionService.submitResponse(
+                TEMP_USER_ID, resourceId, learningSessionId, request);
         return ResponseEntity.ok(response);
     }
 }

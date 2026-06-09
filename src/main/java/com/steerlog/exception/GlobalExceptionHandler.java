@@ -45,4 +45,11 @@ public class GlobalExceptionHandler {
         ErrorResponse body = new ErrorResponse("LEARNING_SESSION_CANNOT_BE_DISCARDED", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
+
+    @ExceptionHandler(LearningSessionCannotAcceptResponseException.class)
+    public ResponseEntity<ErrorResponse> handleLearningSessionCannotAcceptResponse(
+            LearningSessionCannotAcceptResponseException ex) {
+        ErrorResponse body = new ErrorResponse("LEARNING_SESSION_CANNOT_ACCEPT_RESPONSE", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
 }
