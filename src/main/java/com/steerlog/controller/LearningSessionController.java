@@ -2,6 +2,7 @@ package com.steerlog.controller;
 
 import com.steerlog.dto.request.StartLearningSessionRequest;
 import com.steerlog.dto.request.SubmitLearningSessionResponseRequest;
+import com.steerlog.dto.response.CompleteLearningSessionResponse;
 import com.steerlog.dto.response.DiscardLearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
 import com.steerlog.dto.response.SubmitLearningSessionResponseResponse;
@@ -52,6 +53,15 @@ public class LearningSessionController {
             @Valid @RequestBody SubmitLearningSessionResponseRequest request) {
         SubmitLearningSessionResponseResponse response = learningSessionService.submitResponse(
                 TEMP_USER_ID, resourceId, learningSessionId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{learningSessionId}/complete")
+    public ResponseEntity<CompleteLearningSessionResponse> completeSession(
+            @PathVariable Long resourceId,
+            @PathVariable Long learningSessionId) {
+        CompleteLearningSessionResponse response =
+                learningSessionService.completeSession(TEMP_USER_ID, resourceId, learningSessionId);
         return ResponseEntity.ok(response);
     }
 }

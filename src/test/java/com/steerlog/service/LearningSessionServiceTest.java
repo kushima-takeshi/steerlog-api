@@ -2,6 +2,7 @@ package com.steerlog.service;
 
 import com.steerlog.dto.request.StartLearningSessionRequest;
 import com.steerlog.dto.request.SubmitLearningSessionResponseRequest;
+import com.steerlog.dto.response.CompleteLearningSessionResponse;
 import com.steerlog.dto.response.DiscardLearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
 import com.steerlog.dto.response.SubmitLearningSessionResponseResponse;
@@ -14,6 +15,7 @@ import com.steerlog.entity.Resource;
 import com.steerlog.entity.ResourceType;
 import com.steerlog.exception.LevelRequirementNotMetException;
 import com.steerlog.exception.LearningSessionCannotAcceptResponseException;
+import com.steerlog.exception.LearningSessionCannotBeCompletedException;
 import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
 import com.steerlog.exception.LearningSessionNotFoundException;
 import com.steerlog.exception.ProgressNotFoundException;
@@ -751,6 +753,323 @@ class LearningSessionServiceTest {
                 userId, resourceId, learningSessionId, buildSubmitRequest()))
                 .isInstanceOf(LearningSessionCannotAcceptResponseException.class)
                 .hasMessage("Learning session cannot accept response");
+
+        verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    @Test
+    void completeSession_shouldCompleteInProgressSessionAtFinalStep() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 900L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                3,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CompleteLearningSessionResponse response =
+                learningSessionService.completeSession(userId, resourceId, learningSessionId);
+
+        ArgumentCaptor<LearningSession> sessionCaptor = ArgumentCaptor.forClass(LearningSession.class);
+        verify(learningSessionRepository).save(sessionCaptor.capture());
+
+        assertThat(sessionCaptor.getValue().getStatus()).isEqualTo(LearningSessionStatus.COMPLETED);
+        assertThat(response.getStatus()).isEqualTo(LearningSessionStatus.COMPLETED);
+    }
+
+    @Test
+    void completeSession_shouldSetCompletedAt() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 901L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                3,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CompleteLearningSessionResponse response =
+                learningSessionService.completeSession(userId, resourceId, learningSessionId);
+
+        assertThat(response.getCompletedAt()).isNotNull();
+        assertThat(response.getCompletedAt()).isAfter(before);
+    }
+
+    @Test
+    void completeSession_shouldUpdateUpdatedAt() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 902L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                3,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        learningSessionService.completeSession(userId, resourceId, learningSessionId);
+
+        ArgumentCaptor<LearningSession> sessionCaptor = ArgumentCaptor.forClass(LearningSession.class);
+        verify(learningSessionRepository).save(sessionCaptor.capture());
+
+        assertThat(sessionCaptor.getValue().getUpdatedAt()).isNotNull();
+        assertThat(sessionCaptor.getValue().getUpdatedAt()).isAfter(before);
+    }
+
+    @Test
+    void completeSession_shouldNotChangeCurrentStepOrTotalSteps() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 903L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                3,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        learningSessionService.completeSession(userId, resourceId, learningSessionId);
+
+        ArgumentCaptor<LearningSession> sessionCaptor = ArgumentCaptor.forClass(LearningSession.class);
+        verify(learningSessionRepository).save(sessionCaptor.capture());
+
+        assertThat(sessionCaptor.getValue().getCurrentStep()).isEqualTo(3);
+        assertThat(sessionCaptor.getValue().getTotalSteps()).isEqualTo(3);
+    }
+
+    @Test
+    void completeSession_shouldReturnResultDraft() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 904L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                3,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CompleteLearningSessionResponse response =
+                learningSessionService.completeSession(userId, resourceId, learningSessionId);
+
+        assertThat(response.getResultDraft()).isNotNull();
+        assertThat(response.getResultDraft().getSummary())
+                .isEqualTo("今回の振り返り内容をもとに、学習内容の要点を整理しました。");
+        assertThat(response.getResultDraft().getConceptTags())
+                .containsExactly("reflection", "understanding", "review");
+        assertThat(response.getResultDraft().getWeakPointSummary())
+                .isEqualTo("まだ曖昧な点は、次回の復習で確認してください。");
+        assertThat(response.getResultDraft().getNextAction())
+                .isEqualTo("今回整理した内容をもとに、重要な概念をもう一度説明できるか確認してください。");
+        assertThat(response.getResultDraft().getAiAssessment()).isEqualTo("PASSED");
+        assertThat(response.getResultDraft().getGenerationBasis())
+                .isEqualTo("MVPでは回答ログを保存しないため、固定テンプレートでresultDraftを生成しています。");
+    }
+
+    @Test
+    void completeSession_shouldReturnDelayedRecallResultDraft() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 905L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.DELAYED_RECALL,
+                LearningSessionStatus.IN_PROGRESS,
+                3,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CompleteLearningSessionResponse response =
+                learningSessionService.completeSession(userId, resourceId, learningSessionId);
+
+        assertThat(response.getResultDraft().getSummary())
+                .isEqualTo("今回の想起内容をもとに、記憶に残っている内容を整理しました。");
+        assertThat(response.getResultDraft().getConceptTags())
+                .containsExactly("recall", "retention", "review");
+    }
+
+    @Test
+    void completeSession_shouldReturnSaveRecordNextAction() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 906L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                3,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CompleteLearningSessionResponse response =
+                learningSessionService.completeSession(userId, resourceId, learningSessionId);
+
+        assertThat(response.getNextAction().getType()).isEqualTo("SAVE_RECORD");
+    }
+
+    @Test
+    void completeSession_shouldRejectWhenCurrentStepBelowTotalSteps() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 907L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                2,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> learningSessionService.completeSession(userId, resourceId, learningSessionId))
+                .isInstanceOf(LearningSessionCannotBeCompletedException.class)
+                .hasMessage("Learning session cannot be completed");
+
+        verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    @Test
+    void completeSession_shouldRejectCompletedSession() {
+        assertCompleteSessionRejectedForStatus(LearningSessionStatus.COMPLETED);
+    }
+
+    @Test
+    void completeSession_shouldRejectRecordSavedSession() {
+        assertCompleteSessionRejectedForStatus(LearningSessionStatus.RECORD_SAVED);
+    }
+
+    @Test
+    void completeSession_shouldRejectDiscardedSession() {
+        assertCompleteSessionRejectedForStatus(LearningSessionStatus.DISCARDED);
+    }
+
+    @Test
+    void completeSession_shouldThrowLearningSessionNotFoundExceptionWhenSessionNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 908L;
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> learningSessionService.completeSession(userId, resourceId, learningSessionId))
+                .isInstanceOf(LearningSessionNotFoundException.class)
+                .hasMessage("Learning session not found");
+
+        verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    @Test
+    void completeSession_shouldNotPersistResultDraftToDatabase() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 909L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.IN_PROGRESS,
+                3,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        learningSessionService.completeSession(userId, resourceId, learningSessionId);
+
+        verify(learningSessionRepository).save(any(LearningSession.class));
+        verify(resourceRepository, never()).save(any());
+        verify(progressRepository, never()).save(any());
+    }
+
+    private void assertCompleteSessionRejectedForStatus(LearningSessionStatus status) {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 910L;
+        Instant before = Instant.parse("2026-06-08T10:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                status,
+                3,
+                null,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> learningSessionService.completeSession(userId, resourceId, learningSessionId))
+                .isInstanceOf(LearningSessionCannotBeCompletedException.class)
+                .hasMessage("Learning session cannot be completed");
 
         verify(learningSessionRepository, never()).save(any(LearningSession.class));
     }
