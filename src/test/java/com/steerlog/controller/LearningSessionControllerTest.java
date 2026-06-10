@@ -3,7 +3,9 @@ package com.steerlog.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.steerlog.dto.request.StartLearningSessionRequest;
 import com.steerlog.dto.request.SubmitLearningSessionResponseRequest;
+import com.steerlog.dto.response.CompleteLearningSessionResponse;
 import com.steerlog.dto.response.DiscardLearningSessionResponse;
+import com.steerlog.dto.response.LearningSessionResultDraftResponse;
 import com.steerlog.dto.response.SubmitLearningSessionResponseResponse;
 import com.steerlog.dto.response.LearningSessionNextActionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
@@ -12,6 +14,7 @@ import com.steerlog.entity.LearningSessionStatus;
 import com.steerlog.entity.LearningSessionType;
 import com.steerlog.exception.GlobalExceptionHandler;
 import com.steerlog.exception.LearningSessionCannotAcceptResponseException;
+import com.steerlog.exception.LearningSessionCannotBeCompletedException;
 import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
 import com.steerlog.exception.LearningSessionNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
@@ -25,6 +28,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -317,5 +321,96 @@ class LearningSessionControllerTest {
         verify(learningSessionService).submitResponse(
                 eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SubmitLearningSessionResponseRequest.class));
+    }
+
+    @Test
+    void completeSession_shouldReturn200() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 900L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+
+        LearningSessionResultDraftResponse resultDraft = new LearningSessionResultDraftResponse();
+        resultDraft.setSummary("今回の振り返り内容をもとに、学習内容の要点を整理しました。");
+        resultDraft.setConceptTags(List.of("reflection", "understanding", "review"));
+        resultDraft.setWeakPointSummary("まだ曖昧な点は、次回の復習で確認してください。");
+        resultDraft.setNextAction("今回整理した内容をもとに、重要な概念をもう一度説明できるか確認してください。");
+        resultDraft.setAiAssessment("PASSED");
+        resultDraft.setGenerationBasis("MVPでは回答ログを保存しないため、固定テンプレートでresultDraftを生成しています。");
+
+        LearningSessionNextActionResponse nextAction = new LearningSessionNextActionResponse();
+        nextAction.setType("SAVE_RECORD");
+
+        CompleteLearningSessionResponse response = new CompleteLearningSessionResponse();
+        response.setLearningSessionId(learningSessionId);
+        response.setResourceId(resourceId);
+        response.setSessionType(LearningSessionType.IMMEDIATE_REFLECTION);
+        response.setStatus(LearningSessionStatus.COMPLETED);
+        response.setResultDraft(resultDraft);
+        response.setNextAction(nextAction);
+        response.setCompletedAt(completedAt);
+
+        when(learningSessionService.completeSession(TEMP_USER_ID, resourceId, learningSessionId))
+                .thenReturn(response);
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/complete",
+                        resourceId, learningSessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.learningSessionId").value(900))
+                .andExpect(jsonPath("$.resourceId").value(10))
+                .andExpect(jsonPath("$.sessionType").value("IMMEDIATE_REFLECTION"))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.resultDraft.summary")
+                        .value("今回の振り返り内容をもとに、学習内容の要点を整理しました。"))
+                .andExpect(jsonPath("$.resultDraft.conceptTags[0]").value("reflection"))
+                .andExpect(jsonPath("$.resultDraft.conceptTags[1]").value("understanding"))
+                .andExpect(jsonPath("$.resultDraft.conceptTags[2]").value("review"))
+                .andExpect(jsonPath("$.resultDraft.weakPointSummary")
+                        .value("まだ曖昧な点は、次回の復習で確認してください。"))
+                .andExpect(jsonPath("$.resultDraft.nextAction")
+                        .value("今回整理した内容をもとに、重要な概念をもう一度説明できるか確認してください。"))
+                .andExpect(jsonPath("$.resultDraft.aiAssessment").value("PASSED"))
+                .andExpect(jsonPath("$.resultDraft.generationBasis")
+                        .value("MVPでは回答ログを保存しないため、固定テンプレートでresultDraftを生成しています。"))
+                .andExpect(jsonPath("$.nextAction.type").value("SAVE_RECORD"))
+                .andExpect(jsonPath("$.completedAt").value("2026-06-08T13:00:00Z"));
+
+        verify(learningSessionService).completeSession(TEMP_USER_ID, resourceId, learningSessionId);
+    }
+
+    @Test
+    void completeSession_shouldReturn404WhenSessionNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 900L;
+
+        when(learningSessionService.completeSession(TEMP_USER_ID, resourceId, learningSessionId))
+                .thenThrow(new LearningSessionNotFoundException("Learning session not found"));
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/complete",
+                        resourceId, learningSessionId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LEARNING_SESSION_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Learning session not found"));
+
+        verify(learningSessionService).completeSession(TEMP_USER_ID, resourceId, learningSessionId);
+    }
+
+    @Test
+    void completeSession_shouldReturn400WhenSessionCannotBeCompleted() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 900L;
+
+        when(learningSessionService.completeSession(TEMP_USER_ID, resourceId, learningSessionId))
+                .thenThrow(new LearningSessionCannotBeCompletedException("Learning session cannot be completed"));
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/complete",
+                        resourceId, learningSessionId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("LEARNING_SESSION_CANNOT_BE_COMPLETED"))
+                .andExpect(jsonPath("$.message").value("Learning session cannot be completed"));
+
+        verify(learningSessionService).completeSession(TEMP_USER_ID, resourceId, learningSessionId);
     }
 }

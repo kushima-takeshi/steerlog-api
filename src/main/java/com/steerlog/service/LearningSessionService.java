@@ -2,7 +2,9 @@ package com.steerlog.service;
 
 import com.steerlog.dto.request.StartLearningSessionRequest;
 import com.steerlog.dto.request.SubmitLearningSessionResponseRequest;
+import com.steerlog.dto.response.CompleteLearningSessionResponse;
 import com.steerlog.dto.response.DiscardLearningSessionResponse;
+import com.steerlog.dto.response.LearningSessionResultDraftResponse;
 import com.steerlog.dto.response.SubmitLearningSessionResponseResponse;
 import com.steerlog.dto.response.LearningSessionNextActionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
@@ -13,6 +15,7 @@ import com.steerlog.entity.LearningSessionType;
 import com.steerlog.entity.Progress;
 import com.steerlog.exception.LevelRequirementNotMetException;
 import com.steerlog.exception.LearningSessionCannotAcceptResponseException;
+import com.steerlog.exception.LearningSessionCannotBeCompletedException;
 import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
 import com.steerlog.exception.LearningSessionNotFoundException;
 import com.steerlog.exception.ProgressNotFoundException;
@@ -33,6 +36,11 @@ public class LearningSessionService {
     private static final int TOTAL_STEPS = 3;
     private static final String NEXT_ACTION_SUBMIT_RESPONSE = "SUBMIT_RESPONSE";
     private static final String NEXT_ACTION_COMPLETE_SESSION = "COMPLETE_SESSION";
+    private static final String NEXT_ACTION_SAVE_RECORD = "SAVE_RECORD";
+
+    private static final String RESULT_DRAFT_GENERATION_BASIS =
+            "MVPでは回答ログを保存しないため、固定テンプレートでresultDraftを生成しています。";
+    private static final String RESULT_DRAFT_AI_ASSESSMENT = "PASSED";
 
     private static final String IMMEDIATE_REFLECTION_PROMPT_STEP_1 =
             "このResourceで学んだ内容を、自分の言葉で説明してください。";
@@ -155,6 +163,72 @@ public class LearningSessionService {
         LearningSession savedSession = learningSessionRepository.save(session);
 
         return toSubmitLearningSessionResponseResponse(savedSession);
+    }
+
+    @Transactional
+    public CompleteLearningSessionResponse completeSession(
+            Long userId, Long resourceId, Long learningSessionId) {
+        LearningSession session = learningSessionRepository
+                .findByLearningSessionIdAndUserIdAndResourceId(learningSessionId, userId, resourceId)
+                .orElseThrow(() -> new LearningSessionNotFoundException("Learning session not found"));
+
+        if (session.getStatus() != LearningSessionStatus.IN_PROGRESS) {
+            throw new LearningSessionCannotBeCompletedException("Learning session cannot be completed");
+        }
+
+        if (!session.getCurrentStep().equals(session.getTotalSteps())) {
+            throw new LearningSessionCannotBeCompletedException("Learning session cannot be completed");
+        }
+
+        Instant now = Instant.now();
+        session.setStatus(LearningSessionStatus.COMPLETED);
+        session.setCompletedAt(now);
+        session.setUpdatedAt(now);
+
+        LearningSession savedSession = learningSessionRepository.save(session);
+
+        return toCompleteLearningSessionResponse(savedSession);
+    }
+
+    private CompleteLearningSessionResponse toCompleteLearningSessionResponse(LearningSession session) {
+        LearningSessionNextActionResponse nextAction = new LearningSessionNextActionResponse();
+        nextAction.setType(NEXT_ACTION_SAVE_RECORD);
+
+        CompleteLearningSessionResponse response = new CompleteLearningSessionResponse();
+        response.setLearningSessionId(session.getLearningSessionId());
+        response.setResourceId(session.getResourceId());
+        response.setSessionType(session.getSessionType());
+        response.setStatus(session.getStatus());
+        response.setResultDraft(buildResultDraft(session.getSessionType()));
+        response.setNextAction(nextAction);
+        response.setCompletedAt(session.getCompletedAt());
+        return response;
+    }
+
+    private LearningSessionResultDraftResponse buildResultDraft(LearningSessionType sessionType) {
+        LearningSessionResultDraftResponse resultDraft = new LearningSessionResultDraftResponse();
+        resultDraft.setAiAssessment(RESULT_DRAFT_AI_ASSESSMENT);
+        resultDraft.setGenerationBasis(RESULT_DRAFT_GENERATION_BASIS);
+
+        switch (sessionType) {
+            case IMMEDIATE_REFLECTION -> {
+                resultDraft.setSummary("今回の振り返り内容をもとに、学習内容の要点を整理しました。");
+                resultDraft.setConceptTags(List.of("reflection", "understanding", "review"));
+                resultDraft.setWeakPointSummary("まだ曖昧な点は、次回の復習で確認してください。");
+                resultDraft.setNextAction(
+                        "今回整理した内容をもとに、重要な概念をもう一度説明できるか確認してください。");
+            }
+            case DELAYED_RECALL -> {
+                resultDraft.setSummary("今回の想起内容をもとに、記憶に残っている内容を整理しました。");
+                resultDraft.setConceptTags(List.of("recall", "retention", "review"));
+                resultDraft.setWeakPointSummary(
+                        "思い出せなかった点や曖昧な点を、次回の学習対象として確認してください。");
+                resultDraft.setNextAction(
+                        "曖昧だった内容をResourceに戻って確認し、再度説明できるか試してください。");
+            }
+        }
+
+        return resultDraft;
     }
 
     private SubmitLearningSessionResponseResponse toSubmitLearningSessionResponseResponse(

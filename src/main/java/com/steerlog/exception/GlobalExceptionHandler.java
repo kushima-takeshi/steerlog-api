@@ -52,4 +52,11 @@ public class GlobalExceptionHandler {
         ErrorResponse body = new ErrorResponse("LEARNING_SESSION_CANNOT_ACCEPT_RESPONSE", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
+
+    @ExceptionHandler(LearningSessionCannotBeCompletedException.class)
+    public ResponseEntity<ErrorResponse> handleLearningSessionCannotBeCompleted(
+            LearningSessionCannotBeCompletedException ex) {
+        ErrorResponse body = new ErrorResponse("LEARNING_SESSION_CANNOT_BE_COMPLETED", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
 }
