@@ -1,21 +1,25 @@
 package com.steerlog.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.steerlog.dto.request.SaveLearningSessionRecordRequest;
 import com.steerlog.dto.request.StartLearningSessionRequest;
 import com.steerlog.dto.request.SubmitLearningSessionResponseRequest;
 import com.steerlog.dto.response.CompleteLearningSessionResponse;
 import com.steerlog.dto.response.DiscardLearningSessionResponse;
+import com.steerlog.dto.response.LearningSessionRecordResponse;
 import com.steerlog.dto.response.LearningSessionResultDraftResponse;
 import com.steerlog.dto.response.SubmitLearningSessionResponseResponse;
 import com.steerlog.dto.response.LearningSessionNextActionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionStepResponse;
+import com.steerlog.entity.LearningSessionAiAssessment;
 import com.steerlog.entity.LearningSessionStatus;
 import com.steerlog.entity.LearningSessionType;
 import com.steerlog.exception.GlobalExceptionHandler;
 import com.steerlog.exception.LearningSessionCannotAcceptResponseException;
 import com.steerlog.exception.LearningSessionCannotBeCompletedException;
 import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
+import com.steerlog.exception.LearningSessionRecordCannotBeSavedException;
 import com.steerlog.exception.LearningSessionNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.service.LearningSessionService;
@@ -412,5 +416,142 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.message").value("Learning session cannot be completed"));
 
         verify(learningSessionService).completeSession(TEMP_USER_ID, resourceId, learningSessionId);
+    }
+
+    @Test
+    void saveRecord_shouldReturn201() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 1000L;
+        Instant createdAt = Instant.parse("2026-06-08T14:00:00Z");
+
+        SaveLearningSessionRecordRequest request = new SaveLearningSessionRecordRequest();
+        request.setSummary("学習内容の要点まとめ");
+        request.setConceptTags(List.of("reflection", "understanding", "review"));
+        request.setWeakPointSummary("まだ曖昧な点あり");
+        request.setNextAction("次回復習する");
+        request.setAiAssessment(LearningSessionAiAssessment.PASSED);
+
+        LearningSessionRecordResponse response = new LearningSessionRecordResponse();
+        response.setLearningSessionRecordId(2000L);
+        response.setResourceId(resourceId);
+        response.setLearningSessionId(learningSessionId);
+        response.setSessionType(LearningSessionType.IMMEDIATE_REFLECTION);
+        response.setSummary("学習内容の要点まとめ");
+        response.setConceptTags(List.of("reflection", "understanding", "review"));
+        response.setWeakPointSummary("まだ曖昧な点あり");
+        response.setNextAction("次回復習する");
+        response.setAiAssessment(LearningSessionAiAssessment.PASSED);
+        response.setCreatedAt(createdAt);
+
+        when(learningSessionService.saveRecord(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SaveLearningSessionRecordRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/record",
+                        resourceId, learningSessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.learningSessionRecordId").value(2000))
+                .andExpect(jsonPath("$.resourceId").value(10))
+                .andExpect(jsonPath("$.learningSessionId").value(1000))
+                .andExpect(jsonPath("$.sessionType").value("IMMEDIATE_REFLECTION"))
+                .andExpect(jsonPath("$.summary").value("学習内容の要点まとめ"))
+                .andExpect(jsonPath("$.conceptTags[0]").value("reflection"))
+                .andExpect(jsonPath("$.conceptTags[1]").value("understanding"))
+                .andExpect(jsonPath("$.conceptTags[2]").value("review"))
+                .andExpect(jsonPath("$.weakPointSummary").value("まだ曖昧な点あり"))
+                .andExpect(jsonPath("$.nextAction").value("次回復習する"))
+                .andExpect(jsonPath("$.aiAssessment").value("PASSED"))
+                .andExpect(jsonPath("$.createdAt").value("2026-06-08T14:00:00Z"));
+
+        verify(learningSessionService).saveRecord(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SaveLearningSessionRecordRequest.class));
+    }
+
+    @Test
+    void saveRecord_shouldReturn400WhenSummaryEmpty() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 1000L;
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/record",
+                        resourceId, learningSessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"summary\":\"\",\"aiAssessment\":\"PASSED\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void saveRecord_shouldReturn400WhenAiAssessmentMissing() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 1000L;
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/record",
+                        resourceId, learningSessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"summary\":\"学習内容の要点まとめ\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void saveRecord_shouldReturn404WhenSessionNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 1000L;
+
+        SaveLearningSessionRecordRequest request = new SaveLearningSessionRecordRequest();
+        request.setSummary("学習内容の要点まとめ");
+        request.setAiAssessment(LearningSessionAiAssessment.PASSED);
+
+        when(learningSessionService.saveRecord(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SaveLearningSessionRecordRequest.class)))
+                .thenThrow(new LearningSessionNotFoundException("Learning session not found"));
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/record",
+                        resourceId, learningSessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LEARNING_SESSION_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Learning session not found"));
+
+        verify(learningSessionService).saveRecord(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SaveLearningSessionRecordRequest.class));
+    }
+
+    @Test
+    void saveRecord_shouldReturn400WhenRecordCannotBeSaved() throws Exception {
+        Long resourceId = 10L;
+        Long learningSessionId = 1000L;
+
+        SaveLearningSessionRecordRequest request = new SaveLearningSessionRecordRequest();
+        request.setSummary("学習内容の要点まとめ");
+        request.setAiAssessment(LearningSessionAiAssessment.PASSED);
+
+        when(learningSessionService.saveRecord(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SaveLearningSessionRecordRequest.class)))
+                .thenThrow(new LearningSessionRecordCannotBeSavedException(
+                        "Learning session record cannot be saved"));
+
+        mockMvc.perform(post(
+                        "/resources/{resourceId}/learning-sessions/{learningSessionId}/record",
+                        resourceId, learningSessionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("LEARNING_SESSION_RECORD_CANNOT_BE_SAVED"))
+                .andExpect(jsonPath("$.message").value("Learning session record cannot be saved"));
+
+        verify(learningSessionService).saveRecord(
+                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                any(SaveLearningSessionRecordRequest.class));
     }
 }

@@ -1,12 +1,16 @@
 package com.steerlog.service;
 
+import com.steerlog.dto.request.SaveLearningSessionRecordRequest;
 import com.steerlog.dto.request.StartLearningSessionRequest;
 import com.steerlog.dto.request.SubmitLearningSessionResponseRequest;
 import com.steerlog.dto.response.CompleteLearningSessionResponse;
 import com.steerlog.dto.response.DiscardLearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
+import com.steerlog.dto.response.LearningSessionRecordResponse;
 import com.steerlog.dto.response.SubmitLearningSessionResponseResponse;
 import com.steerlog.entity.LearningSession;
+import com.steerlog.entity.LearningSessionAiAssessment;
+import com.steerlog.entity.LearningSessionRecord;
 import com.steerlog.entity.LearningSessionStatus;
 import com.steerlog.entity.LearningSessionType;
 import com.steerlog.entity.Progress;
@@ -18,9 +22,11 @@ import com.steerlog.exception.LearningSessionCannotAcceptResponseException;
 import com.steerlog.exception.LearningSessionCannotBeCompletedException;
 import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
 import com.steerlog.exception.LearningSessionNotFoundException;
+import com.steerlog.exception.LearningSessionRecordCannotBeSavedException;
 import com.steerlog.exception.ProgressNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.exception.SessionAlreadyInProgressException;
+import com.steerlog.repository.LearningSessionRecordRepository;
 import com.steerlog.repository.LearningSessionRepository;
 import com.steerlog.repository.ProgressRepository;
 import com.steerlog.repository.ResourceRepository;
@@ -54,6 +60,9 @@ class LearningSessionServiceTest {
 
     @Mock
     private LearningSessionRepository learningSessionRepository;
+
+    @Mock
+    private LearningSessionRecordRepository learningSessionRecordRepository;
 
     @InjectMocks
     private LearningSessionService learningSessionService;
@@ -1072,6 +1081,406 @@ class LearningSessionServiceTest {
                 .hasMessage("Learning session cannot be completed");
 
         verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    @Test
+    void saveRecord_shouldSaveLearningSessionRecordFromCompletedSession() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1000L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
+            LearningSessionRecord record = invocation.getArgument(0);
+            record.setLearningSessionRecordId(2000L);
+            return record;
+        });
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LearningSessionRecordResponse response = learningSessionService.saveRecord(
+                userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        assertThat(response.getLearningSessionRecordId()).isEqualTo(2000L);
+        assertThat(response.getResourceId()).isEqualTo(resourceId);
+        assertThat(response.getLearningSessionId()).isEqualTo(learningSessionId);
+        assertThat(response.getSessionType()).isEqualTo(LearningSessionType.IMMEDIATE_REFLECTION);
+        assertThat(response.getSummary()).isEqualTo("学習内容の要点まとめ");
+        assertThat(response.getAiAssessment()).isEqualTo(LearningSessionAiAssessment.PASSED);
+    }
+
+    @Test
+    void saveRecord_shouldSetLearningSessionStatusToRecordSaved() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1001L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
+            LearningSessionRecord record = invocation.getArgument(0);
+            record.setLearningSessionRecordId(2001L);
+            return record;
+        });
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        ArgumentCaptor<LearningSession> sessionCaptor = ArgumentCaptor.forClass(LearningSession.class);
+        verify(learningSessionRepository).save(sessionCaptor.capture());
+
+        assertThat(sessionCaptor.getValue().getStatus()).isEqualTo(LearningSessionStatus.RECORD_SAVED);
+    }
+
+    @Test
+    void saveRecord_shouldUpdateLearningSessionUpdatedAt() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1002L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
+            LearningSessionRecord record = invocation.getArgument(0);
+            record.setLearningSessionRecordId(2002L);
+            return record;
+        });
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        ArgumentCaptor<LearningSession> sessionCaptor = ArgumentCaptor.forClass(LearningSession.class);
+        verify(learningSessionRepository).save(sessionCaptor.capture());
+
+        assertThat(sessionCaptor.getValue().getUpdatedAt()).isNotNull();
+        assertThat(sessionCaptor.getValue().getUpdatedAt()).isAfter(before);
+    }
+
+    @Test
+    void saveRecord_shouldNotChangeLearningSessionCompletedAt() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1003L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
+            LearningSessionRecord record = invocation.getArgument(0);
+            record.setLearningSessionRecordId(2003L);
+            return record;
+        });
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        ArgumentCaptor<LearningSession> sessionCaptor = ArgumentCaptor.forClass(LearningSession.class);
+        verify(learningSessionRepository).save(sessionCaptor.capture());
+
+        assertThat(sessionCaptor.getValue().getCompletedAt()).isEqualTo(completedAt);
+    }
+
+    @Test
+    void saveRecord_shouldNotUpdateProgressCurrentLevel() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1004L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
+            LearningSessionRecord record = invocation.getArgument(0);
+            record.setLearningSessionRecordId(2004L);
+            return record;
+        });
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        verify(progressRepository, never()).save(any(Progress.class));
+        verify(progressRepository, never()).findByUserIdAndResourceId(any(), any());
+    }
+
+    @Test
+    void saveRecord_shouldRejectInProgressSession() {
+        assertSaveRecordRejectedForStatus(LearningSessionStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void saveRecord_shouldRejectRecordSavedSession() {
+        assertSaveRecordRejectedForStatus(LearningSessionStatus.RECORD_SAVED);
+    }
+
+    @Test
+    void saveRecord_shouldRejectDiscardedSession() {
+        assertSaveRecordRejectedForStatus(LearningSessionStatus.DISCARDED);
+    }
+
+    @Test
+    void saveRecord_shouldRejectOffTopicAssessment() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1005L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        SaveLearningSessionRecordRequest request = buildSaveRecordRequest();
+        request.setAiAssessment(LearningSessionAiAssessment.OFF_TOPIC);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> learningSessionService.saveRecord(
+                userId, resourceId, learningSessionId, request))
+                .isInstanceOf(LearningSessionRecordCannotBeSavedException.class)
+                .hasMessage("Learning session record cannot be saved");
+
+        verify(learningSessionRecordRepository, never()).save(any(LearningSessionRecord.class));
+        verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    @Test
+    void saveRecord_shouldRejectWhenRecordAlreadyExists() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1006L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> learningSessionService.saveRecord(
+                userId, resourceId, learningSessionId, buildSaveRecordRequest()))
+                .isInstanceOf(LearningSessionRecordCannotBeSavedException.class)
+                .hasMessage("Learning session record cannot be saved");
+
+        verify(learningSessionRecordRepository, never()).save(any(LearningSessionRecord.class));
+        verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    @Test
+    void saveRecord_shouldThrowLearningSessionNotFoundExceptionWhenSessionNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1007L;
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> learningSessionService.saveRecord(
+                userId, resourceId, learningSessionId, buildSaveRecordRequest()))
+                .isInstanceOf(LearningSessionNotFoundException.class)
+                .hasMessage("Learning session not found");
+
+        verify(learningSessionRecordRepository, never()).save(any(LearningSessionRecord.class));
+        verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    @Test
+    void saveRecord_shouldStoreConceptTagsAsCommaSeparatedString() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1008L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        SaveLearningSessionRecordRequest request = buildSaveRecordRequest();
+        request.setConceptTags(List.of("reflection", "understanding", "review"));
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
+            LearningSessionRecord record = invocation.getArgument(0);
+            record.setLearningSessionRecordId(2008L);
+            return record;
+        });
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, request);
+
+        ArgumentCaptor<LearningSessionRecord> recordCaptor = ArgumentCaptor.forClass(LearningSessionRecord.class);
+        verify(learningSessionRecordRepository).save(recordCaptor.capture());
+
+        assertThat(recordCaptor.getValue().getConceptTags()).isEqualTo("reflection,understanding,review");
+    }
+
+    @Test
+    void saveRecord_shouldReturnConceptTagsAsListInResponse() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1009L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        SaveLearningSessionRecordRequest request = buildSaveRecordRequest();
+        request.setConceptTags(List.of("reflection", "understanding", "review"));
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
+            LearningSessionRecord record = invocation.getArgument(0);
+            record.setLearningSessionRecordId(2009L);
+            return record;
+        });
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LearningSessionRecordResponse response = learningSessionService.saveRecord(
+                userId, resourceId, learningSessionId, request);
+
+        assertThat(response.getConceptTags()).containsExactly("reflection", "understanding", "review");
+    }
+
+    private void assertSaveRecordRejectedForStatus(LearningSessionStatus status) {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1010L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                status,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> learningSessionService.saveRecord(
+                userId, resourceId, learningSessionId, buildSaveRecordRequest()))
+                .isInstanceOf(LearningSessionRecordCannotBeSavedException.class)
+                .hasMessage("Learning session record cannot be saved");
+
+        verify(learningSessionRecordRepository, never()).save(any(LearningSessionRecord.class));
+        verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    private SaveLearningSessionRecordRequest buildSaveRecordRequest() {
+        SaveLearningSessionRecordRequest request = new SaveLearningSessionRecordRequest();
+        request.setSummary("学習内容の要点まとめ");
+        request.setWeakPointSummary("まだ曖昧な点あり");
+        request.setNextAction("次回復習する");
+        request.setAiAssessment(LearningSessionAiAssessment.PASSED);
+        return request;
     }
 
     private SubmitLearningSessionResponseRequest buildSubmitRequest() {

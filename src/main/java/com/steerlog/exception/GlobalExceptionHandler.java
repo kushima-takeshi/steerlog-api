@@ -59,4 +59,11 @@ public class GlobalExceptionHandler {
         ErrorResponse body = new ErrorResponse("LEARNING_SESSION_CANNOT_BE_COMPLETED", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
+
+    @ExceptionHandler(LearningSessionRecordCannotBeSavedException.class)
+    public ResponseEntity<ErrorResponse> handleLearningSessionRecordCannotBeSaved(
+            LearningSessionRecordCannotBeSavedException ex) {
+        ErrorResponse body = new ErrorResponse("LEARNING_SESSION_RECORD_CANNOT_BE_SAVED", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
 }
