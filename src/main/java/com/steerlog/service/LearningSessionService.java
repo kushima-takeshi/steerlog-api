@@ -1,5 +1,6 @@
 package com.steerlog.service;
 
+import com.steerlog.dto.request.SaveLearningSessionRecordRequest;
 import com.steerlog.dto.request.StartLearningSessionRequest;
 import com.steerlog.dto.request.SubmitLearningSessionResponseRequest;
 import com.steerlog.dto.response.CompleteLearningSessionResponse;
@@ -7,9 +8,12 @@ import com.steerlog.dto.response.DiscardLearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionResultDraftResponse;
 import com.steerlog.dto.response.SubmitLearningSessionResponseResponse;
 import com.steerlog.dto.response.LearningSessionNextActionResponse;
+import com.steerlog.dto.response.LearningSessionRecordResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionStepResponse;
 import com.steerlog.entity.LearningSession;
+import com.steerlog.entity.LearningSessionAiAssessment;
+import com.steerlog.entity.LearningSessionRecord;
 import com.steerlog.entity.LearningSessionStatus;
 import com.steerlog.entity.LearningSessionType;
 import com.steerlog.entity.Progress;
@@ -18,9 +22,11 @@ import com.steerlog.exception.LearningSessionCannotAcceptResponseException;
 import com.steerlog.exception.LearningSessionCannotBeCompletedException;
 import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
 import com.steerlog.exception.LearningSessionNotFoundException;
+import com.steerlog.exception.LearningSessionRecordCannotBeSavedException;
 import com.steerlog.exception.ProgressNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.exception.SessionAlreadyInProgressException;
+import com.steerlog.repository.LearningSessionRecordRepository;
 import com.steerlog.repository.LearningSessionRepository;
 import com.steerlog.repository.ProgressRepository;
 import com.steerlog.repository.ResourceRepository;
@@ -28,7 +34,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class LearningSessionService {
@@ -59,14 +68,17 @@ public class LearningSessionService {
     private final ResourceRepository resourceRepository;
     private final ProgressRepository progressRepository;
     private final LearningSessionRepository learningSessionRepository;
+    private final LearningSessionRecordRepository learningSessionRecordRepository;
 
     public LearningSessionService(
             ResourceRepository resourceRepository,
             ProgressRepository progressRepository,
-            LearningSessionRepository learningSessionRepository) {
+            LearningSessionRepository learningSessionRepository,
+            LearningSessionRecordRepository learningSessionRecordRepository) {
         this.resourceRepository = resourceRepository;
         this.progressRepository = progressRepository;
         this.learningSessionRepository = learningSessionRepository;
+        this.learningSessionRecordRepository = learningSessionRecordRepository;
     }
 
     @Transactional
@@ -188,6 +200,85 @@ public class LearningSessionService {
         LearningSession savedSession = learningSessionRepository.save(session);
 
         return toCompleteLearningSessionResponse(savedSession);
+    }
+
+    @Transactional
+    public LearningSessionRecordResponse saveRecord(
+            Long userId,
+            Long resourceId,
+            Long learningSessionId,
+            SaveLearningSessionRecordRequest request) {
+        LearningSession session = learningSessionRepository
+                .findByLearningSessionIdAndUserIdAndResourceId(learningSessionId, userId, resourceId)
+                .orElseThrow(() -> new LearningSessionNotFoundException("Learning session not found"));
+
+        if (session.getStatus() != LearningSessionStatus.COMPLETED) {
+            throw new LearningSessionRecordCannotBeSavedException("Learning session record cannot be saved");
+        }
+
+        if (request.getAiAssessment() == LearningSessionAiAssessment.OFF_TOPIC) {
+            throw new LearningSessionRecordCannotBeSavedException("Learning session record cannot be saved");
+        }
+
+        if (learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId)) {
+            throw new LearningSessionRecordCannotBeSavedException("Learning session record cannot be saved");
+        }
+
+        Instant now = Instant.now();
+
+        LearningSessionRecord record = new LearningSessionRecord();
+        record.setUserId(userId);
+        record.setResourceId(resourceId);
+        record.setLearningSessionId(learningSessionId);
+        record.setSessionType(session.getSessionType());
+        record.setSummary(request.getSummary());
+        record.setConceptTags(formatConceptTags(request.getConceptTags()));
+        record.setWeakPointSummary(request.getWeakPointSummary());
+        record.setNextAction(request.getNextAction());
+        record.setAiAssessment(request.getAiAssessment());
+        record.setCreatedAt(now);
+        record.setUpdatedAt(now);
+
+        LearningSessionRecord savedRecord = learningSessionRecordRepository.save(record);
+
+        session.setStatus(LearningSessionStatus.RECORD_SAVED);
+        session.setUpdatedAt(now);
+        learningSessionRepository.save(session);
+
+        return toLearningSessionRecordResponse(savedRecord);
+    }
+
+    private String formatConceptTags(List<String> conceptTags) {
+        if (conceptTags == null || conceptTags.isEmpty()) {
+            return null;
+        }
+        return String.join(",", conceptTags);
+    }
+
+    private List<String> parseConceptTags(String conceptTags) {
+        if (conceptTags == null || conceptTags.isBlank()) {
+            return Collections.emptyList();
+        }
+        return Arrays.stream(conceptTags.split(","))
+                .map(String::trim)
+                .filter(tag -> !tag.isEmpty())
+                .collect(Collectors.toList());
+    }
+
+    private LearningSessionRecordResponse toLearningSessionRecordResponse(LearningSessionRecord record) {
+        LearningSessionRecordResponse response = new LearningSessionRecordResponse();
+        response.setLearningSessionRecordId(record.getLearningSessionRecordId());
+        response.setResourceId(record.getResourceId());
+        response.setLearningSessionId(record.getLearningSessionId());
+        response.setSessionType(record.getSessionType());
+        response.setSummary(record.getSummary());
+        response.setConceptTags(parseConceptTags(record.getConceptTags()));
+        response.setWeakPointSummary(record.getWeakPointSummary());
+        response.setNextAction(record.getNextAction());
+        response.setAiAssessment(record.getAiAssessment());
+        response.setCreatedAt(record.getCreatedAt());
+        return response;
     }
 
     private CompleteLearningSessionResponse toCompleteLearningSessionResponse(LearningSession session) {
