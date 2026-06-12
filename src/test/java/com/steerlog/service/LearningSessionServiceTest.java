@@ -13,6 +13,9 @@ import com.steerlog.entity.LearningSessionAiAssessment;
 import com.steerlog.entity.LearningSessionRecord;
 import com.steerlog.entity.LearningSessionStatus;
 import com.steerlog.entity.LearningSessionType;
+import com.steerlog.entity.LevelHistory;
+import com.steerlog.entity.LevelHistoryReasonCode;
+import com.steerlog.entity.LevelHistorySourceType;
 import com.steerlog.entity.Progress;
 import com.steerlog.entity.ProgressStatus;
 import com.steerlog.entity.Resource;
@@ -26,6 +29,7 @@ import com.steerlog.exception.LearningSessionRecordCannotBeSavedException;
 import com.steerlog.exception.ProgressNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.exception.SessionAlreadyInProgressException;
+import com.steerlog.repository.LevelHistoryRepository;
 import com.steerlog.repository.LearningSessionRecordRepository;
 import com.steerlog.repository.LearningSessionRepository;
 import com.steerlog.repository.ProgressRepository;
@@ -45,6 +49,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,6 +68,9 @@ class LearningSessionServiceTest {
 
     @Mock
     private LearningSessionRecordRepository learningSessionRecordRepository;
+
+    @Mock
+    private LevelHistoryRepository levelHistoryRepository;
 
     @InjectMocks
     private LearningSessionService learningSessionService;
@@ -1105,12 +1113,7 @@ class LearningSessionServiceTest {
         when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
                 learningSessionId, userId, resourceId))
                 .thenReturn(false);
-        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
-            LearningSessionRecord record = invocation.getArgument(0);
-            record.setLearningSessionRecordId(2000L);
-            return record;
-        });
-        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2000L, 1);
 
         LearningSessionRecordResponse response = learningSessionService.saveRecord(
                 userId, resourceId, learningSessionId, buildSaveRecordRequest());
@@ -1145,12 +1148,7 @@ class LearningSessionServiceTest {
         when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
                 learningSessionId, userId, resourceId))
                 .thenReturn(false);
-        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
-            LearningSessionRecord record = invocation.getArgument(0);
-            record.setLearningSessionRecordId(2001L);
-            return record;
-        });
-        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2001L, 1);
 
         learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
 
@@ -1182,12 +1180,7 @@ class LearningSessionServiceTest {
         when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
                 learningSessionId, userId, resourceId))
                 .thenReturn(false);
-        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
-            LearningSessionRecord record = invocation.getArgument(0);
-            record.setLearningSessionRecordId(2002L);
-            return record;
-        });
-        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2002L, 1);
 
         learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
 
@@ -1220,12 +1213,7 @@ class LearningSessionServiceTest {
         when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
                 learningSessionId, userId, resourceId))
                 .thenReturn(false);
-        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
-            LearningSessionRecord record = invocation.getArgument(0);
-            record.setLearningSessionRecordId(2003L);
-            return record;
-        });
-        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2003L, 1);
 
         learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
 
@@ -1233,10 +1221,12 @@ class LearningSessionServiceTest {
         verify(learningSessionRepository).save(sessionCaptor.capture());
 
         assertThat(sessionCaptor.getValue().getCompletedAt()).isEqualTo(completedAt);
+        assertThat(sessionCaptor.getValue().getCurrentStep()).isEqualTo(3);
+        assertThat(sessionCaptor.getValue().getTotalSteps()).isEqualTo(3);
     }
 
     @Test
-    void saveRecord_shouldNotUpdateProgressCurrentLevel() {
+    void saveRecord_shouldUpdateProgressCurrentLevelTo2ForImmediateReflection() {
         Long userId = 1L;
         Long resourceId = 10L;
         Long learningSessionId = 1004L;
@@ -1257,17 +1247,328 @@ class LearningSessionServiceTest {
         when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
                 learningSessionId, userId, resourceId))
                 .thenReturn(false);
-        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
-            LearningSessionRecord record = invocation.getArgument(0);
-            record.setLearningSessionRecordId(2004L);
-            return record;
-        });
-        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2004L, 1);
 
         learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
 
-        verify(progressRepository, never()).save(any(Progress.class));
-        verify(progressRepository, never()).findByUserIdAndResourceId(any(), any());
+        ArgumentCaptor<Progress> progressCaptor = ArgumentCaptor.forClass(Progress.class);
+        verify(progressRepository).save(progressCaptor.capture());
+
+        assertThat(progressCaptor.getValue().getCurrentLevel()).isEqualTo(2);
+        assertThat(progressCaptor.getValue().getLastStudiedAt()).isNotNull();
+        assertThat(progressCaptor.getValue().getUpdatedAt()).isNotNull();
+    }
+
+    @Test
+    void saveRecord_shouldCreateLevelHistoryLevel2ForImmediateReflection() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1011L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2011L, 1);
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        ArgumentCaptor<LevelHistory> levelHistoryCaptor = ArgumentCaptor.forClass(LevelHistory.class);
+        verify(levelHistoryRepository).save(levelHistoryCaptor.capture());
+
+        assertThat(levelHistoryCaptor.getValue().getLevel()).isEqualTo(2);
+        assertThat(levelHistoryCaptor.getValue().getSourceType())
+                .isEqualTo(LevelHistorySourceType.LEARNING_SESSION_RECORD);
+        assertThat(levelHistoryCaptor.getValue().getSourceId()).isEqualTo(2011L);
+        assertThat(levelHistoryCaptor.getValue().getReasonCode())
+                .isEqualTo(LevelHistoryReasonCode.IMMEDIATE_REFLECTION_RECORDED);
+    }
+
+    @Test
+    void saveRecord_shouldUpdateProgressCurrentLevelTo3ForDelayedRecall() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1012L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.DELAYED_RECALL,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2012L, 2);
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        ArgumentCaptor<Progress> progressCaptor = ArgumentCaptor.forClass(Progress.class);
+        verify(progressRepository).save(progressCaptor.capture());
+
+        assertThat(progressCaptor.getValue().getCurrentLevel()).isEqualTo(3);
+    }
+
+    @Test
+    void saveRecord_shouldCreateLevelHistoryLevel3ForDelayedRecall() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1013L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.DELAYED_RECALL,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2013L, 2);
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        ArgumentCaptor<LevelHistory> levelHistoryCaptor = ArgumentCaptor.forClass(LevelHistory.class);
+        verify(levelHistoryRepository).save(levelHistoryCaptor.capture());
+
+        assertThat(levelHistoryCaptor.getValue().getLevel()).isEqualTo(3);
+        assertThat(levelHistoryCaptor.getValue().getSourceType())
+                .isEqualTo(LevelHistorySourceType.LEARNING_SESSION_RECORD);
+        assertThat(levelHistoryCaptor.getValue().getSourceId()).isEqualTo(2013L);
+        assertThat(levelHistoryCaptor.getValue().getReasonCode())
+                .isEqualTo(LevelHistoryReasonCode.DELAYED_RECALL_RECORDED);
+    }
+
+    @Test
+    void saveRecord_shouldNotLowerCurrentLevelWhenAlreadyAtOrAboveLevel2ForImmediateReflection() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1014L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2014L, 3);
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        ArgumentCaptor<Progress> progressCaptor = ArgumentCaptor.forClass(Progress.class);
+        verify(progressRepository).save(progressCaptor.capture());
+
+        assertThat(progressCaptor.getValue().getCurrentLevel()).isEqualTo(3);
+    }
+
+    @Test
+    void saveRecord_shouldNotLowerCurrentLevelWhenAlreadyAtOrAboveLevel3ForDelayedRecall() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1015L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.DELAYED_RECALL,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2015L, 3);
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        ArgumentCaptor<Progress> progressCaptor = ArgumentCaptor.forClass(Progress.class);
+        verify(progressRepository).save(progressCaptor.capture());
+
+        assertThat(progressCaptor.getValue().getCurrentLevel()).isEqualTo(3);
+    }
+
+    @Test
+    void saveRecord_shouldNotCreateDuplicateLevelHistory() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1016L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2016L, 1);
+        when(levelHistoryRepository.existsByUserIdAndResourceIdAndLevel(userId, resourceId, 2))
+                .thenReturn(true);
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, buildSaveRecordRequest());
+
+        verify(levelHistoryRepository, never()).save(any(LevelHistory.class));
+    }
+
+    @Test
+    void saveRecord_shouldThrowProgressNotFoundExceptionWhenProgressNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1017L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
+            LearningSessionRecord record = invocation.getArgument(0);
+            record.setLearningSessionRecordId(2017L);
+            return record;
+        });
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> learningSessionService.saveRecord(
+                userId, resourceId, learningSessionId, buildSaveRecordRequest()))
+                .isInstanceOf(ProgressNotFoundException.class)
+                .hasMessage("Progress not found");
+
+        verify(levelHistoryRepository, never()).save(any(LevelHistory.class));
+    }
+
+    @Test
+    void saveRecord_shouldReachLevel2WhenNeedsReviewForImmediateReflection() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1018L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.IMMEDIATE_REFLECTION,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        SaveLearningSessionRecordRequest request = buildSaveRecordRequest();
+        request.setAiAssessment(LearningSessionAiAssessment.NEEDS_REVIEW);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2018L, 1);
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, request);
+
+        ArgumentCaptor<Progress> progressCaptor = ArgumentCaptor.forClass(Progress.class);
+        verify(progressRepository).save(progressCaptor.capture());
+        assertThat(progressCaptor.getValue().getCurrentLevel()).isEqualTo(2);
+
+        verify(levelHistoryRepository).save(any(LevelHistory.class));
+    }
+
+    @Test
+    void saveRecord_shouldReachLevel3WhenNeedsReviewForDelayedRecall() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long learningSessionId = 1019L;
+        Instant completedAt = Instant.parse("2026-06-08T13:00:00Z");
+        Instant before = Instant.parse("2026-06-08T12:00:00Z");
+
+        LearningSession session = buildLearningSession(
+                learningSessionId, userId, resourceId,
+                LearningSessionType.DELAYED_RECALL,
+                LearningSessionStatus.COMPLETED,
+                3,
+                completedAt,
+                before);
+
+        SaveLearningSessionRecordRequest request = buildSaveRecordRequest();
+        request.setAiAssessment(LearningSessionAiAssessment.NEEDS_REVIEW);
+
+        when(learningSessionRepository.findByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(Optional.of(session));
+        when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
+                learningSessionId, userId, resourceId))
+                .thenReturn(false);
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2019L, 2);
+
+        learningSessionService.saveRecord(userId, resourceId, learningSessionId, request);
+
+        ArgumentCaptor<Progress> progressCaptor = ArgumentCaptor.forClass(Progress.class);
+        verify(progressRepository).save(progressCaptor.capture());
+        assertThat(progressCaptor.getValue().getCurrentLevel()).isEqualTo(3);
+
+        verify(levelHistoryRepository).save(any(LevelHistory.class));
     }
 
     @Test
@@ -1393,12 +1694,7 @@ class LearningSessionServiceTest {
         when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
                 learningSessionId, userId, resourceId))
                 .thenReturn(false);
-        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
-            LearningSessionRecord record = invocation.getArgument(0);
-            record.setLearningSessionRecordId(2008L);
-            return record;
-        });
-        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2008L, 1);
 
         learningSessionService.saveRecord(userId, resourceId, learningSessionId, request);
 
@@ -1433,12 +1729,7 @@ class LearningSessionServiceTest {
         when(learningSessionRecordRepository.existsByLearningSessionIdAndUserIdAndResourceId(
                 learningSessionId, userId, resourceId))
                 .thenReturn(false);
-        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
-            LearningSessionRecord record = invocation.getArgument(0);
-            record.setLearningSessionRecordId(2009L);
-            return record;
-        });
-        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubSaveRecordPersistence(learningSessionId, userId, resourceId, 2009L, 1);
 
         LearningSessionRecordResponse response = learningSessionService.saveRecord(
                 userId, resourceId, learningSessionId, request);
@@ -1472,6 +1763,27 @@ class LearningSessionServiceTest {
 
         verify(learningSessionRecordRepository, never()).save(any(LearningSessionRecord.class));
         verify(learningSessionRepository, never()).save(any(LearningSession.class));
+    }
+
+    private void stubSaveRecordPersistence(
+            Long learningSessionId,
+            Long userId,
+            Long resourceId,
+            Long learningSessionRecordId,
+            int currentLevel) {
+        when(learningSessionRecordRepository.save(any(LearningSessionRecord.class))).thenAnswer(invocation -> {
+            LearningSessionRecord record = invocation.getArgument(0);
+            record.setLearningSessionRecordId(learningSessionRecordId);
+            return record;
+        });
+        when(learningSessionRepository.save(any(LearningSession.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.of(buildProgress(1L, userId, resourceId, currentLevel)));
+        when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(levelHistoryRepository.existsByUserIdAndResourceIdAndLevel(eq(userId), eq(resourceId), any()))
+                .thenReturn(false);
+        lenient().when(levelHistoryRepository.save(any(LevelHistory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     private SaveLearningSessionRecordRequest buildSaveRecordRequest() {
