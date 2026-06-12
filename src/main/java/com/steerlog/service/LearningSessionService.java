@@ -16,6 +16,9 @@ import com.steerlog.entity.LearningSessionAiAssessment;
 import com.steerlog.entity.LearningSessionRecord;
 import com.steerlog.entity.LearningSessionStatus;
 import com.steerlog.entity.LearningSessionType;
+import com.steerlog.entity.LevelHistory;
+import com.steerlog.entity.LevelHistoryReasonCode;
+import com.steerlog.entity.LevelHistorySourceType;
 import com.steerlog.entity.Progress;
 import com.steerlog.exception.LevelRequirementNotMetException;
 import com.steerlog.exception.LearningSessionCannotAcceptResponseException;
@@ -26,6 +29,7 @@ import com.steerlog.exception.LearningSessionRecordCannotBeSavedException;
 import com.steerlog.exception.ProgressNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.exception.SessionAlreadyInProgressException;
+import com.steerlog.repository.LevelHistoryRepository;
 import com.steerlog.repository.LearningSessionRecordRepository;
 import com.steerlog.repository.LearningSessionRepository;
 import com.steerlog.repository.ProgressRepository;
@@ -69,16 +73,19 @@ public class LearningSessionService {
     private final ProgressRepository progressRepository;
     private final LearningSessionRepository learningSessionRepository;
     private final LearningSessionRecordRepository learningSessionRecordRepository;
+    private final LevelHistoryRepository levelHistoryRepository;
 
     public LearningSessionService(
             ResourceRepository resourceRepository,
             ProgressRepository progressRepository,
             LearningSessionRepository learningSessionRepository,
-            LearningSessionRecordRepository learningSessionRecordRepository) {
+            LearningSessionRecordRepository learningSessionRecordRepository,
+            LevelHistoryRepository levelHistoryRepository) {
         this.resourceRepository = resourceRepository;
         this.progressRepository = progressRepository;
         this.learningSessionRepository = learningSessionRepository;
         this.learningSessionRecordRepository = learningSessionRecordRepository;
+        this.levelHistoryRepository = levelHistoryRepository;
     }
 
     @Transactional
@@ -246,7 +253,51 @@ public class LearningSessionService {
         session.setUpdatedAt(now);
         learningSessionRepository.save(session);
 
+        applyLevelAchievementAfterRecordSaved(userId, resourceId, session.getSessionType(), savedRecord, now);
+
         return toLearningSessionRecordResponse(savedRecord);
+    }
+
+    private void applyLevelAchievementAfterRecordSaved(
+            Long userId,
+            Long resourceId,
+            LearningSessionType sessionType,
+            LearningSessionRecord savedRecord,
+            Instant now) {
+        int targetLevel = switch (sessionType) {
+            case IMMEDIATE_REFLECTION -> 2;
+            case DELAYED_RECALL -> 3;
+        };
+
+        Progress progress = progressRepository
+                .findByUserIdAndResourceId(userId, resourceId)
+                .orElseThrow(() -> new ProgressNotFoundException("Progress not found"));
+
+        progress.setLastStudiedAt(now);
+        progress.setUpdatedAt(now);
+        if (progress.getCurrentLevel() < targetLevel) {
+            progress.setCurrentLevel(targetLevel);
+        }
+        progressRepository.save(progress);
+
+        if (!levelHistoryRepository.existsByUserIdAndResourceIdAndLevel(userId, resourceId, targetLevel)) {
+            LevelHistory levelHistory = new LevelHistory();
+            levelHistory.setUserId(userId);
+            levelHistory.setResourceId(resourceId);
+            levelHistory.setLevel(targetLevel);
+            levelHistory.setSourceType(LevelHistorySourceType.LEARNING_SESSION_RECORD);
+            levelHistory.setSourceId(savedRecord.getLearningSessionRecordId());
+            levelHistory.setReasonCode(resolveLevelHistoryReasonCode(sessionType));
+            levelHistory.setCreatedAt(now);
+            levelHistoryRepository.save(levelHistory);
+        }
+    }
+
+    private LevelHistoryReasonCode resolveLevelHistoryReasonCode(LearningSessionType sessionType) {
+        return switch (sessionType) {
+            case IMMEDIATE_REFLECTION -> LevelHistoryReasonCode.IMMEDIATE_REFLECTION_RECORDED;
+            case DELAYED_RECALL -> LevelHistoryReasonCode.DELAYED_RECALL_RECORDED;
+        };
     }
 
     private String formatConceptTags(List<String> conceptTags) {
