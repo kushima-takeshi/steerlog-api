@@ -78,6 +78,8 @@ created_at
 updated_at
 ```
 
+例外: `level_histories` は `created_at` のみ（`updated_at` なし）。
+
 論理削除対象テーブルには以下を持たせる。
 
 ```text
@@ -95,10 +97,10 @@ archived_at
 initial_studied_at
 last_studied_at
 studied_at
-completed_at
-discarded_at
-record_saved_at
 ```
+
+MVP では `learning_sessions` に `discarded_at` / `record_saved_at` 専用カラムは持たない。  
+破棄は `status = DISCARDED`、証跡保存完了は `status = RECORD_SAVED` で表す。
 
 ---
 
@@ -164,6 +166,56 @@ learning_cycles
 galaxy_nodes
 galaxy_edges
 ```
+
+---
+
+# 2.5 ドメイン関係図
+
+MVP の主要 8 テーブルがどのように関係するかを示す。  
+API 実装や Service 設計時に、テーブルごとの責務と参照関係を思い出すための図である。
+
+DB 上は外部キーでつながるが、Java Entity では `@ManyToOne` は使わず `resourceId` などの `Long` ID で扱う。
+
+## 2.5.1 関係図
+
+```mermaid
+flowchart TB
+    Resource["resources<br/>学習対象・Resource本体<br/>論理削除あり"]
+
+    Progress["progresses<br/>学習進捗<br/>current_level を保持"]
+    ResourceSection["resource_sections<br/>章・セクション<br/>論理削除あり"]
+    SectionStudyStatus["section_study_statuses<br/>Sectionごとの学習状態"]
+    StudyMemo["study_memos<br/>学習メモ<br/>論理削除あり"]
+    LearningSession["learning_sessions<br/>振り返り・想起セッション進行状態<br/>IN_PROGRESS / COMPLETED / RECORD_SAVED / DISCARDED"]
+    LearningSessionRecord["learning_session_records<br/>正式な学習証跡<br/>record API で作成"]
+    LevelHistory["level_histories<br/>Lv到達履歴（初到達イベント）<br/>user_id + resource_id + level は重複しない"]
+
+    Resource -->|"1 : 1<br/>Resource作成時に自動作成"| Progress
+    Resource -->|"1 : N"| ResourceSection
+    ResourceSection -->|"1 : 1<br/>Section作成時に自動作成"| SectionStudyStatus
+    Resource -->|"1 : N"| StudyMemo
+    ResourceSection -.->|"0..N 任意で紐づく"| StudyMemo
+    Resource -->|"1 : N"| LearningSession
+    LearningSession -->|"最大 1 件"| LearningSessionRecord
+    Resource -->|"1 : N"| LearningSessionRecord
+    Resource -->|"1 : N"| LevelHistory
+    LearningSessionRecord -.->|"source_id になることがある<br/>Lv.2 / Lv.3"| LevelHistory
+    SectionStudyStatus -.->|"source_id = null<br/>Lv.1（全Section学習済み）"| LevelHistory
+    Progress -.->|"source_id = null<br/>Lv.1（初回学習完了）"| LevelHistory
+```
+
+## 2.5.2 補足
+
+* `Progress` は Resource 作成時に自動作成するため、直接作成 API はない
+* `SectionStudyStatus` は Section 作成時に自動作成する
+* `LearningSession` は進行状態であり、正式証跡ではない
+* `LearningSessionRecord` が正式な学習証跡である
+* `LevelHistory` は初到達イベントであり、証跡本文ではない
+* Lv.1 の `LevelHistory` は `source_id = null`（`INITIAL_STUDY_COMPLETION` または `SECTION_STUDY_STATUS`）
+* Lv.2 / Lv.3 の `LevelHistory` は `source_type = LEARNING_SESSION_RECORD`、`source_id = learning_session_record_id`
+* `StudyMemo` は学習メモだが、作成・更新・削除では Level を上げない
+* `resources` / `resource_sections` / `study_memos` は論理削除対象
+* Entity では現時点で `@ManyToOne` は使わず、`resourceId` などの Long ID で扱う方針
 
 ---
 
@@ -263,10 +315,8 @@ ON resources (user_id, deleted_at);
 | resource_section_id | リソースセクションID | BIGSERIAL | ○ | 主キー |
 | user_id | ユーザーID | BIGINT | ○ | 所有ユーザー |
 | resource_id | リソースID | BIGINT | ○ | 親Resource |
-| parent_section_id | 親セクションID | BIGINT |  | 階層用 |
 | title | セクション名 | VARCHAR(255) | ○ | 章名・節名 |
-| display_order | 表示順 | INTEGER | ○ | 並び順 |
-| level | 階層レベル | INTEGER |  | 章=1、節=2など |
+| section_order | 表示順 | INTEGER | ○ | 並び順 |
 | deleted_at | 削除日時 | TIMESTAMPTZ |  | 論理削除 |
 | created_at | 作成日時 | TIMESTAMPTZ | ○ | 作成日時 |
 | updated_at | 更新日時 | TIMESTAMPTZ | ○ | 更新日時 |
@@ -283,29 +333,25 @@ REFERENCES resources(resource_id)
 ```
 
 ```sql
-FOREIGN KEY (parent_section_id)
-REFERENCES resource_sections(resource_section_id)
+CHECK (section_order >= 1)
 ```
 
 ```sql
-CREATE INDEX idx_resource_sections_resource
-ON resource_sections (resource_id);
+CREATE UNIQUE INDEX uq_resource_sections_user_resource_order
+ON resource_sections (user_id, resource_id, section_order);
 ```
 
 ```sql
-CREATE INDEX idx_resource_sections_user_resource
-ON resource_sections (user_id, resource_id);
+CREATE INDEX idx_resource_sections_user_resource_deleted
+ON resource_sections (user_id, resource_id, deleted_at);
 ```
 
 ```sql
-CREATE INDEX idx_resource_sections_order
-ON resource_sections (resource_id, display_order);
+CREATE INDEX idx_resource_sections_resource_order
+ON resource_sections (resource_id, section_order);
 ```
 
 ## 4.4 判断
-
-`parent_section_id` は持たせる。  
-ただしMVP画面では、深い階層UIは必須ではない。
 
 Section作成時に、対応する `section_study_statuses` も作成する。
 
@@ -357,10 +403,7 @@ FOREIGN KEY (resource_id)
 REFERENCES resources(resource_id)
 ```
 
-```sql
-FOREIGN KEY (current_section_id)
-REFERENCES resource_sections(resource_section_id)
-```
+`current_section_id` は DB 外部キー制約なし。整合性はアプリケーション側で確認する。
 
 ```sql
 CREATE UNIQUE INDEX uq_progresses_user_resource
@@ -406,21 +449,10 @@ Lv.1〜Lv.3の到達処理によって更新する。
 | resource_id | リソースID | BIGINT | ○ | 対象Resource |
 | resource_section_id | リソースセクションID | BIGINT | ○ | 対象Section |
 | studied_at | 学習済み日時 | TIMESTAMPTZ |  | 学習済みにした日時 |
-| understanding_level | 理解度 | INTEGER |  | 1〜5 |
 | created_at | 作成日時 | TIMESTAMPTZ | ○ | 作成日時 |
 | updated_at | 更新日時 | TIMESTAMPTZ | ○ | 更新日時 |
 
-## 6.3 understanding_level
-
-```text
-1 = ほぼ分からない
-2 = なんとなく分かる
-3 = 普通に理解した
-4 = 人に説明できそう
-5 = 実装・応用できそう
-```
-
-## 6.4 制約・Index
+## 6.3 制約・Index
 
 ```sql
 PRIMARY KEY (section_study_status_id)
@@ -437,23 +469,21 @@ REFERENCES resource_sections(resource_section_id)
 ```
 
 ```sql
-CREATE UNIQUE INDEX uq_section_study_status_user_section
+CREATE UNIQUE INDEX uq_section_study_statuses_user_section
 ON section_study_statuses (user_id, resource_section_id);
 ```
 
 ```sql
-CREATE INDEX idx_section_study_status_user_resource
+CREATE INDEX idx_section_study_statuses_user_resource
 ON section_study_statuses (user_id, resource_id);
 ```
 
 ```sql
-CHECK (
-  understanding_level IS NULL
-  OR understanding_level BETWEEN 1 AND 5
-)
+CREATE INDEX idx_section_study_statuses_user_section
+ON section_study_statuses (user_id, resource_section_id);
 ```
 
-## 6.5 判断
+## 6.4 判断
 
 `resource_id` は `resource_section_id` から辿れるが、Resource単位の集計や取得を容易にするため保持する。
 
@@ -477,7 +507,6 @@ CHECK (
 | resource_section_id | リソースセクションID | BIGINT |  | 対象Section。Resource全体メモならNULL |
 | memo_type | メモ種別 | VARCHAR(50) | ○ | GENERAL等 |
 | content | メモ内容 | VARCHAR(500) | ○ | 短いメモ |
-| tags | タグ | TEXT[] |  | MVPでは配列 |
 | deleted_at | 削除日時 | TIMESTAMPTZ |  | 論理削除 |
 | created_at | 作成日時 | TIMESTAMPTZ | ○ | 作成日時 |
 | updated_at | 更新日時 | TIMESTAMPTZ | ○ | 更新日時 |
@@ -527,23 +556,18 @@ CHECK (memo_type IN (
 ```
 
 ```sql
-CREATE INDEX idx_study_memos_user_resource
-ON study_memos (user_id, resource_id);
+CREATE INDEX idx_study_memos_user_resource_deleted
+ON study_memos (user_id, resource_id, deleted_at);
+```
+
+```sql
+CREATE INDEX idx_study_memos_user_section_deleted
+ON study_memos (user_id, resource_section_id, deleted_at);
 ```
 
 ```sql
 CREATE INDEX idx_study_memos_user_resource_created
-ON study_memos (user_id, resource_id, created_at DESC);
-```
-
-```sql
-CREATE INDEX idx_study_memos_resource_section
-ON study_memos (resource_section_id);
-```
-
-```sql
-CREATE INDEX idx_study_memos_deleted
-ON study_memos (user_id, deleted_at);
+ON study_memos (user_id, resource_id, created_at);
 ```
 
 ## 7.5 判断
@@ -551,8 +575,7 @@ ON study_memos (user_id, deleted_at);
 StudyMemoはLevel条件ではない。  
 StudyMemo作成時に `current_level` は上げない。
 
-MVPでは `tags TEXT[]` でよい。  
-タグ正規化テーブルはMVP外。
+`tags` カラムとタグ正規化テーブルはMVP外。
 
 ---
 
@@ -576,11 +599,8 @@ MVPでは `tags TEXT[]` でよい。
 | status | セッション状態 | VARCHAR(50) | ○ | IN_PROGRESS等 |
 | current_step | 現在ステップ | INTEGER | ○ | 現在の質問ステップ |
 | total_steps | 合計ステップ | INTEGER | ○ | 全体ステップ数 |
-| ai_prompt | 現在AI質問 | TEXT |  | 現在表示する質問 |
-| result_draft | 結果案 | JSONB |  | complete後の保存候補 |
+| started_at | 開始日時 | TIMESTAMPTZ | ○ | start実行日時 |
 | completed_at | 完了日時 | TIMESTAMPTZ |  | complete実行日時 |
-| discarded_at | 破棄日時 | TIMESTAMPTZ |  | discard実行日時 |
-| record_saved_at | 証跡保存日時 | TIMESTAMPTZ |  | record保存日時 |
 | created_at | 作成日時 | TIMESTAMPTZ | ○ | 作成日時 |
 | updated_at | 更新日時 | TIMESTAMPTZ | ○ | 更新日時 |
 
@@ -640,13 +660,13 @@ CHECK (current_step <= total_steps)
 ```
 
 ```sql
-CREATE INDEX idx_learning_sessions_user_resource
-ON learning_sessions (user_id, resource_id);
+CREATE INDEX idx_learning_sessions_user_resource_session_status
+ON learning_sessions (user_id, resource_id, session_type, status);
 ```
 
 ```sql
-CREATE INDEX idx_learning_sessions_status
-ON learning_sessions (user_id, status);
+CREATE INDEX idx_learning_sessions_resource_id
+ON learning_sessions (resource_id);
 ```
 
 ```sql
@@ -658,7 +678,8 @@ WHERE status IN ('IN_PROGRESS', 'COMPLETED');
 ## 8.6 判断
 
 raw回答ログや会話ログ全文は正式保存しない。  
-`result_draft` はAI生成結果の保存候補として一時保持する。
+`resultDraft` は complete API のレスポンスのみで返し、DB には保存しない。  
+破棄・証跡保存完了は `status`（`DISCARDED` / `RECORD_SAVED`）で表し、専用の日時カラムは持たない。
 
 ---
 
@@ -678,13 +699,10 @@ raw回答ログや会話ログ全文は正式保存しない。
 | learning_session_id | 学習セッションID | BIGINT | ○ | 元Session |
 | session_type | セッション種別 | VARCHAR(50) | ○ | IMMEDIATE_REFLECTION等 |
 | summary | 要約 | TEXT | ○ | AI整理結果 |
-| concept_tags | 概念タグ | TEXT[] |  | MVPでは配列 |
-| weak_point_tags | 弱点タグ | TEXT[] |  | MVPでは配列 |
-| weak_point_summary | 弱点要約 | TEXT |  | NEEDS_REVIEW時必須 |
-| next_action | 次アクション | TEXT | ○ | 次にやること |
+| concept_tags | 概念タグ | TEXT |  | カンマ区切り等の文字列 |
+| weak_point_summary | 弱点要約 | TEXT |  | NEEDS_REVIEW時に利用 |
+| next_action | 次アクション | TEXT |  | 次にやること |
 | ai_assessment | AI評価 | VARCHAR(50) | ○ | PASSED等 |
-| generation_basis | 生成根拠 | TEXT | ○ | 評価・整理の根拠 |
-| user_comment | ユーザー補足 | TEXT |  | 補足・異議・自己認識 |
 | created_at | 作成日時 | TIMESTAMPTZ | ○ | 作成日時 |
 | updated_at | 更新日時 | TIMESTAMPTZ | ○ | 更新日時 |
 
@@ -728,15 +746,8 @@ CHECK (ai_assessment IN (
 ```
 
 ```sql
-CHECK (
-  ai_assessment <> 'NEEDS_REVIEW'
-  OR weak_point_summary IS NOT NULL
-)
-```
-
-```sql
-CREATE UNIQUE INDEX uq_learning_session_records_session
-ON learning_session_records (learning_session_id);
+CONSTRAINT uq_learning_session_records_learning_session_id
+UNIQUE (learning_session_id)
 ```
 
 ```sql
@@ -745,16 +756,14 @@ ON learning_session_records (user_id, resource_id);
 ```
 
 ```sql
-CREATE INDEX idx_learning_session_records_resource_type
-ON learning_session_records (resource_id, session_type);
+CREATE INDEX idx_learning_session_records_resource_id
+ON learning_session_records (resource_id);
 ```
 
 ## 9.5 判断
 
 OFF_TOPICは保存不可。  
-NEEDS_REVIEWでもLevel到達候補。  
-AI生成部分は編集不可。  
-編集可能なのは `user_comment` のみ。
+NEEDS_REVIEWでもLevel到達候補。
 
 ---
 
@@ -776,10 +785,9 @@ AI生成部分は編集不可。
 | resource_id | リソースID | BIGINT | ○ | 対象Resource |
 | level | 到達Level | INTEGER | ○ | 1〜5 |
 | source_type | 到達元種別 | VARCHAR(50) | ○ | LEARNING_SESSION_RECORD等 |
-| source_id | 到達元ID | BIGINT | ○ | source_typeに応じたID |
+| source_id | 到達元ID | BIGINT |  | source_typeに応じたID。Lv.1 到達時は null |
 | reason_code | 到達理由コード | VARCHAR(100) | ○ | INITIAL_STUDY_COMPLETED等 |
 | created_at | 作成日時 | TIMESTAMPTZ | ○ | 到達日時 |
-| updated_at | 更新日時 | TIMESTAMPTZ | ○ | 原則更新しない |
 
 ## 10.3 source_type
 
@@ -789,6 +797,14 @@ SECTION_STUDY_STATUS
 LEARNING_SESSION_RECORD
 ```
 
+現行実装での使い分け:
+
+```text
+INITIAL_STUDY_COMPLETION … complete-initial-study による Lv.1（source_id = null）
+SECTION_STUDY_STATUS       … 全 Section 学習済みによる Lv.1（source_id = null）
+LEARNING_SESSION_RECORD    … record 保存による Lv.2 / Lv.3（source_id = learning_session_record_id）
+```
+
 ## 10.4 reason_code
 
 ```text
@@ -796,7 +812,12 @@ INITIAL_STUDY_COMPLETED
 ALL_SECTIONS_STUDIED
 IMMEDIATE_REFLECTION_RECORD_SAVED
 DELAYED_RECALL_RECORD_SAVED
+IMMEDIATE_REFLECTION_RECORDED
+DELAYED_RECALL_RECORDED
 ```
+
+現行実装は `*_RECORDED` を使用する。  
+DB の CHECK 制約には旧設計の `*_RECORD_SAVED` も許容している。
 
 ## 10.5 制約・Index
 
@@ -826,7 +847,9 @@ CHECK (reason_code IN (
   'INITIAL_STUDY_COMPLETED',
   'ALL_SECTIONS_STUDIED',
   'IMMEDIATE_REFLECTION_RECORD_SAVED',
-  'DELAYED_RECALL_RECORD_SAVED'
+  'DELAYED_RECALL_RECORD_SAVED',
+  'IMMEDIATE_REFLECTION_RECORDED',
+  'DELAYED_RECALL_RECORDED'
 ))
 ```
 
@@ -850,7 +873,7 @@ ON level_histories (source_type, source_id);
 `source_type + source_id` はポリモーフィック参照。  
 DBの外部キーは張れないため、アプリケーション側で整合性を保証する。
 
-同じResource・同じLevelのLevelHistoryは1件のみ。
+同じ `user_id + resource_id + level` の LevelHistory は 1 件のみ（`uq_level_histories_user_resource_level`）。
 
 ---
 
@@ -861,15 +884,16 @@ DBの外部キーは張れないため、アプリケーション側で整合性
 ```text
 V1__create_resources.sql
 V2__create_progresses.sql
-V3__create_resource_sections.sql
-V4__create_section_study_statuses.sql
-V5__create_level_histories.sql
+V3__create_level_histories.sql
+V4__create_resource_sections.sql
+V5__create_section_study_statuses.sql
 V6__create_study_memos.sql
 V7__create_learning_sessions.sql
 V8__create_learning_session_records.sql
+V9__add_level_history_reason_codes_for_record.sql
 ```
 
-最初の縦切りでは、V1〜V5までを優先する。
+最初の縦切りでは、V1〜V5 までを優先する。
 
 ---
 
