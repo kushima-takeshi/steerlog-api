@@ -710,7 +710,7 @@ GET    /resources/{resourceId}/memos/{memoId}
 | 項目 | 内容 |
 |------|------|
 | 実施日（Step 1〜14） | 2026-06-07 |
-| 実施日（Step 15〜25、27〜28） | 未実施（手順追加のみ） |
+| 実施日（Step 15〜25、27〜28） | 2026-06-13 |
 | 環境 | local / localhost:8080 / PostgreSQL Docker Compose |
 | 前提 | DB を初期化した状態から確認 |
 
@@ -734,7 +734,7 @@ StudyMemo 論理削除
 
 **結果:** 期待通り動作
 
-### 手順追加のみ・未実施
+### 確認済み（2026-06-13）
 
 ```text
 Resource Detail 取得（統合詳細）
@@ -746,4 +746,4 @@ Resource Detail — 存在しない Resource で 404 確認
 Resource Detail — Progress 不存在で 404 確認
 ```
 
-**結果:** 未実施（手順追加のみ）
+**結果:** 期待通り動作
