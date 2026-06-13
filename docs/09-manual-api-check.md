@@ -81,6 +81,7 @@ curl -s http://localhost:8080/resources/{resourceId}
 - HTTP 200 OK
 - `resourceId` / `title` / `progress` が返る
 - 現状は Resource + Progress のみ（Sections / Memos は含まない）
+- 統合詳細は Step 15 の `GET /resources/{resourceId}/details` を使う（本 API は変更しない）
 
 ---
 
@@ -255,7 +256,80 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 
 ---
 
-## 15. 存在しない Resource で 404 確認
+## 15. Resource Detail 取得（統合詳細）
+
+Phase 8 で実装済み。Resource に紐づく進捗・Section・Memo・LevelHistory・LearningSessionRecord を 1 リクエストでまとめて取得する。
+
+```bash
+curl -i http://localhost:8080/resources/{resourceId}/details
+```
+
+レスポンス本文だけ見る場合:
+
+```bash
+curl -s http://localhost:8080/resources/{resourceId}/details
+```
+
+**確認対象**
+
+```http
+GET /resources/{resourceId}/details
+```
+
+**目的**
+
+- Resource / Progress / Sections + StudyStatus / StudyMemo / LevelHistory / LearningSessionRecord をまとめて取得できること
+- 子データが 0 件でも空配列で返ること
+- 既存 `GET /resources/{resourceId}`（Step 3）は変更しないこと
+
+**確認ポイント**
+
+- HTTP 200 OK
+- レスポンスに以下のトップレベルキーが含まれる
+  - `resource`
+  - `progress`
+  - `sections`
+  - `memos`
+  - `levelHistories`
+  - `learningSessionRecords`
+- `sections` は `sectionOrder` 昇順
+- `sections[].studyStatus` が含まれる（未学習 Section は `studiedAt: null` になりうる）
+- `memos` は `createdAt` 降順
+- `levelHistories` は `createdAt` 昇順
+- `learningSessionRecords` は `createdAt` 降順
+- `learningSessionRecords[].conceptTags` は配列で返る（DB 上はカンマ区切り文字列）
+- raw 回答ログは返らない
+- `resultDraft` は返らない
+
+**推奨タイミング**
+
+- Step 5〜12 実行後 … Sections / Memos / LevelHistory 等が入った状態で確認しやすい
+- `memos` を含む状態で確認したい場合は、Step 14（StudyMemo 削除）の**前**に Step 15 を実行するか、削除後に再度 StudyMemo を作成（Step 11）してから確認する
+- Step 1 直後 … 子データ 0 件の空配列確認にも使える
+
+**子データ 0 件の確認**
+
+Sections / Memos / LevelHistories / LearningSessionRecords が 0 件でも、404 ではなく空配列で返る。
+
+```json
+{
+  "sections": [],
+  "memos": [],
+  "levelHistories": [],
+  "learningSessionRecords": []
+}
+```
+
+**注意（本 API の性質）**
+
+- 参照専用（DB 更新しない）
+- Level 更新しない
+- LearningSession 作成しない
+- 既存 `GET /resources/{resourceId}`（Step 3）とは別 API
+
+---
+
+## 16. 存在しない Resource で 404 確認
 
 ```bash
 curl -s http://localhost:8080/resources/999999
@@ -264,6 +338,29 @@ curl -s http://localhost:8080/resources/999999
 **確認ポイント**
 - HTTP 404 Not Found
 - JSON に `"code": "RESOURCE_NOT_FOUND"` が含まれる
+
+---
+
+## 17. Resource Detail — 存在しない Resource で 404 確認
+
+```bash
+curl -i http://localhost:8080/resources/999999/details
+```
+
+**確認ポイント**
+- HTTP 404 Not Found
+- JSON に `"code": "RESOURCE_NOT_FOUND"` が含まれる
+
+---
+
+## 18. Resource Detail — Progress 不存在で 404 確認（補足）
+
+通常は Resource 作成時に Progress も自動作成されるため、本番相当の操作だけでは再現しにくい。  
+DB を直接操作して `progresses` 行を削除した場合の確認用。
+
+**確認ポイント**
+- HTTP 404 Not Found
+- JSON に `"code": "PROGRESS_NOT_FOUND"` が含まれる
 
 ---
 
@@ -277,9 +374,18 @@ PATCH  /resources/{resourceId}/sections/{sectionId}
 DELETE /resources/{resourceId}/sections/{sectionId}
 GET    /resources/{resourceId}/sections/{sectionId}/study-status
 GET    /resources/{resourceId}/memos/{memoId}
-LearningSession 関連 API 一式
-LearningSessionRecord 保存 API
-Resource 詳細への Sections / Memos / Records 統合表示
+```
+
+※ `GET /resources/{resourceId}/details`（Resource 統合詳細）は Step 15 参照（実装済み）。
+
+以下は **実装済み** だが、本ドキュメントには手動確認手順はまだ含めていない（別途追加予定）。
+
+```text
+POST /resources/{resourceId}/learning-sessions
+POST /resources/{resourceId}/learning-sessions/{learningSessionId}/responses
+POST /resources/{resourceId}/learning-sessions/{learningSessionId}/complete
+POST /resources/{resourceId}/learning-sessions/{learningSessionId}/record
+POST /resources/{resourceId}/learning-sessions/{learningSessionId}/discard
 ```
 
 ---
@@ -307,6 +413,7 @@ StudyMemo 作成
 StudyMemo 一覧取得
 StudyMemo 更新
 StudyMemo 論理削除
+Resource Detail 取得（統合詳細）
 存在しない Resource で 404 確認
 ```
 
