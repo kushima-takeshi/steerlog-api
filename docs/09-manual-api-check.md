@@ -11,12 +11,15 @@
 
 1. アプリを起動する（`mvn spring-boot:run` 等）
 2. 下の curl を上から順に実行する
-3. 各ステップのレスポンスから ID を控え、次の curl の `{resourceId}` / `{sectionId}` / `{memoId}` に置き換える
+3. 各ステップのレスポンスから ID を控え、次の curl のプレースホルダに置き換える
 
 ```text
-{resourceId}  … Step 1 の resourceId
-{sectionId}   … Step 5 の resourceSectionId
-{memoId}      … Step 11 の studyMemoId
+{resourceId}                  … Step 1 の resourceId
+{sectionId}                   … Step 5 の resourceSectionId
+{memoId}                      … Step 11 の studyMemoId
+{learningSessionId}           … Step 16 start（IMMEDIATE_REFLECTION）。Step 17〜21 で共通
+{learningSessionIdRecall}     … Step 22 start（DELAYED_RECALL）。Step 22 の responses / complete / record で使用
+{learningSessionIdDiscard}    … Step 23 start（discard 用）。Step 23 の discard で使用
 ```
 
 ## HTTPステータスを確認したい場合
@@ -329,7 +332,328 @@ Sections / Memos / LevelHistories / LearningSessionRecords が 0 件でも、404
 
 ---
 
-## 16. 存在しない Resource で 404 確認
+## 16. LearningSession — IMMEDIATE_REFLECTION（start）
+
+AI 連携は未実装。`aiPrompt` / `resultDraft` は固定文言。  
+前提: Step 7 以降で Lv.1 到達済みの Resource を使うと分かりやすい。
+
+正常フロー全体:
+
+```text
+start → responses → responses → complete → record
+→ Progress.currentLevel が Lv.2 以上
+→ LevelHistory に Lv.2 が作成される
+```
+
+```bash
+curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionType": "IMMEDIATE_REFLECTION"
+  }'
+```
+
+**確認ポイント**
+- HTTP 201 Created
+- `learningSessionId` が返る（以降 `{learningSessionId}` に使う）
+- `sessionType` が `IMMEDIATE_REFLECTION`
+- `status` が `IN_PROGRESS`
+- `step.currentStep` が `1`
+- `step.totalSteps` が `3`
+- `nextAction.type` が `SUBMIT_RESPONSE`
+
+---
+
+## 17. LearningSession — IMMEDIATE_REFLECTION（responses 1回目）
+
+```bash
+curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "responseText": "REST APIではリソースをURIで表現し、HTTPメソッドで操作を表します。"
+  }'
+```
+
+**確認ポイント**
+- HTTP 200 OK
+- `step.currentStep` が `2`
+- `status` は `IN_PROGRESS` のまま
+- raw 回答本文は DB 保存されない
+- `nextAction.type` が `SUBMIT_RESPONSE`
+
+---
+
+## 18. LearningSession — IMMEDIATE_REFLECTION（responses 2回目）
+
+```bash
+curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "responseText": "PUTとPATCHの違いを、Progress更新APIの設計に活かせます。"
+  }'
+```
+
+**確認ポイント**
+- HTTP 200 OK
+- `step.currentStep` が `3`
+- `step.totalSteps` が `3`
+- `nextAction.type` が `COMPLETE_SESSION`
+
+---
+
+## 19. LearningSession — IMMEDIATE_REFLECTION（complete）
+
+```bash
+curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/complete
+```
+
+**確認ポイント**
+- HTTP 200 OK
+- `status` が `COMPLETED`
+- `completedAt` が入る
+- `resultDraft` が返る
+- `nextAction.type` が `SAVE_RECORD`
+- `resultDraft` は DB 保存されない
+
+---
+
+## 20. LearningSession — IMMEDIATE_REFLECTION（record）
+
+```bash
+curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/record \
+  -H "Content-Type: application/json" \
+  -d '{
+    "summary": "REST APIの基本とHTTPメソッドの使い分けを振り返った",
+    "conceptTags": ["REST", "HTTP", "PATCH"],
+    "weakPointSummary": "PUTとPATCHの使い分けにはまだ復習余地がある",
+    "nextAction": "Progress更新APIのPATCH設計を再確認する",
+    "aiAssessment": "NEEDS_REVIEW"
+  }'
+```
+
+**確認ポイント**
+- HTTP 201 Created
+- LearningSessionRecord が作成される
+- `conceptTags` が配列で返る
+- LearningSession の `status` が `RECORD_SAVED` になる
+- `aiAssessment = NEEDS_REVIEW` でも Lv 到達対象になる
+
+---
+
+## 21. LearningSession — IMMEDIATE_REFLECTION 後の Progress / LevelHistory 確認
+
+```bash
+curl -s http://localhost:8080/resources/{resourceId}/progress
+```
+
+**確認ポイント**
+- `currentLevel` が `2` 以上になる
+- 既に Lv.3 なら下がらない
+
+```bash
+curl -s http://localhost:8080/resources/{resourceId}/level-histories
+```
+
+**確認ポイント**
+- Lv.2 の履歴がある
+- `sourceType` が `LEARNING_SESSION_RECORD`
+- `reasonCode` が `IMMEDIATE_REFLECTION_RECORDED`
+- `sourceId` が `learningSessionRecordId`
+
+---
+
+## 22. LearningSession — DELAYED_RECALL 正常フロー
+
+前提: Step 16〜21 で Lv.2 到達済み（`currentLevel >= 2`）。
+
+正常フロー全体:
+
+```text
+start DELAYED_RECALL → responses → responses → complete → record
+→ Progress.currentLevel が Lv.3 以上
+→ LevelHistory に Lv.3 が作成される
+```
+
+### start
+
+```bash
+curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionType": "DELAYED_RECALL"
+  }'
+```
+
+**確認ポイント**
+- Lv.2 未満では開始できない（エラーは Step 25-1 参照）
+- Lv.2 以上なら HTTP 201 Created
+- `sessionType` が `DELAYED_RECALL`
+- `status` が `IN_PROGRESS`
+- 返った `learningSessionIdRecall` を以降の curl に使う（Step 17〜19 と同じパス・本文で可）
+
+### responses / complete
+
+Step 17〜19 と同じ curl を、`{learningSessionIdRecall}` に差し替えて 2 回実行する（responses）→ complete。
+
+### record
+
+Step 20 と同様の record curl を、`{learningSessionIdRecall}` で実行する。
+
+**確認ポイント（record 後）**
+- `reasonCode` が `DELAYED_RECALL_RECORDED`
+- `sourceType` が `LEARNING_SESSION_RECORD`
+- Progress の `currentLevel` が `3` 以上になる
+- LevelHistory に Lv.3 が 1 件作成される（重複しない）
+
+---
+
+## 23. LearningSession — discard 確認
+
+Step 16〜21 で `RECORD_SAVED` になった Session は破棄不可のため、**新しい Session** を作って確認する。  
+同じ Resource でよい（`RECORD_SAVED` は active 制約の対象外）。
+
+### start（破棄用の新規 Session）
+
+```bash
+curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionType": "IMMEDIATE_REFLECTION"
+  }'
+```
+
+返った `learningSessionIdDiscard` を破棄用に使う。
+
+### discard
+
+```bash
+curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionIdDiscard}/discard
+```
+
+**確認ポイント**
+- HTTP 200 OK
+- `status` が `DISCARDED`
+- LearningSessionRecord は作成されない
+- Progress の `currentLevel` は更新されない
+- LevelHistory は作成されない
+- `IN_PROGRESS` / `COMPLETED` から破棄可能
+- `RECORD_SAVED` / `DISCARDED` からは破棄不可（Step 25-6 参照）
+
+---
+
+## 24. LearningSessionRecord 保存後の Resource Detail 確認
+
+```bash
+curl -s http://localhost:8080/resources/{resourceId}/details
+```
+
+**確認ポイント**
+- `learningSessionRecords` に保存した Record が含まれる
+- `conceptTags` が配列で返る
+- `levelHistories` に Lv.2 / Lv.3 の履歴が含まれる
+- raw 回答ログは返らない
+- `resultDraft` は返らない
+
+---
+
+## 25. LearningSession — エラー系
+
+### 25-1. DELAYED_RECALL を Lv.2 未満で開始
+
+新規 Resource 作成直後など、`currentLevel` が 2 未満の状態で確認する（Step 1 のみ実行した Resource 等）。
+
+```bash
+curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionType": "DELAYED_RECALL"
+  }'
+```
+
+**確認ポイント**
+- HTTP 400 Bad Request
+- JSON に `"code": "LEVEL_REQUIREMENT_NOT_MET"`
+
+### 25-2. active session 重複
+
+同じ `userId + resourceId + sessionType` で `IN_PROGRESS` または `COMPLETED` の Session がある状態で、再度 start する。
+
+```bash
+curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionType": "IMMEDIATE_REFLECTION"
+  }'
+```
+
+**確認ポイント**
+- HTTP 409 Conflict
+- JSON に `"code": "SESSION_ALREADY_IN_PROGRESS"`
+
+### 25-3. responses 不可状態
+
+`COMPLETED` / `RECORD_SAVED` / `DISCARDED` の Session に responses を送る。
+
+```bash
+curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "responseText": "回答テキスト"
+  }'
+```
+
+**確認ポイント**
+- HTTP 400 Bad Request
+- JSON に `"code": "LEARNING_SESSION_CANNOT_ACCEPT_RESPONSE"`
+
+### 25-4. complete 不可状態
+
+`currentStep < totalSteps` の状態（responses 未完了）で complete する。
+
+```bash
+curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/complete
+```
+
+**確認ポイント**
+- HTTP 400 Bad Request
+- JSON に `"code": "LEARNING_SESSION_CANNOT_BE_COMPLETED"`
+
+### 25-5. record 保存不可
+
+以下のいずれかで確認する。
+
+- `status != COMPLETED`（`IN_PROGRESS` のまま record）
+- `aiAssessment = OFF_TOPIC`
+- 同一 LearningSession から Record を 2 回保存
+
+```bash
+curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/record \
+  -H "Content-Type: application/json" \
+  -d '{
+    "summary": "テスト",
+    "aiAssessment": "OFF_TOPIC"
+  }'
+```
+
+**確認ポイント**
+- HTTP 400 Bad Request
+- JSON に `"code": "LEARNING_SESSION_RECORD_CANNOT_BE_SAVED"`
+
+### 25-6. discard 不可
+
+`RECORD_SAVED` または `DISCARDED` の Session を discard する（Step 20 完了後の Session 等）。
+
+```bash
+curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/discard
+```
+
+**確認ポイント**
+- HTTP 400 Bad Request
+- JSON に `"code": "LEARNING_SESSION_CANNOT_BE_DISCARDED"`
+
+---
+
+## 26. 存在しない Resource で 404 確認
 
 ```bash
 curl -s http://localhost:8080/resources/999999
@@ -341,7 +665,7 @@ curl -s http://localhost:8080/resources/999999
 
 ---
 
-## 17. Resource Detail — 存在しない Resource で 404 確認
+## 27. Resource Detail — 存在しない Resource で 404 確認
 
 ```bash
 curl -i http://localhost:8080/resources/999999/details
@@ -353,7 +677,7 @@ curl -i http://localhost:8080/resources/999999/details
 
 ---
 
-## 18. Resource Detail — Progress 不存在で 404 確認（補足）
+## 28. Resource Detail — Progress 不存在で 404 確認（補足）
 
 通常は Resource 作成時に Progress も自動作成されるため、本番相当の操作だけでは再現しにくい。  
 DB を直接操作して `progresses` 行を削除した場合の確認用。
@@ -376,17 +700,8 @@ GET    /resources/{resourceId}/sections/{sectionId}/study-status
 GET    /resources/{resourceId}/memos/{memoId}
 ```
 
-※ `GET /resources/{resourceId}/details`（Resource 統合詳細）は Step 15 参照（実装済み）。
-
-以下は **実装済み** だが、本ドキュメントには手動確認手順はまだ含めていない（別途追加予定）。
-
-```text
-POST /resources/{resourceId}/learning-sessions
-POST /resources/{resourceId}/learning-sessions/{learningSessionId}/responses
-POST /resources/{resourceId}/learning-sessions/{learningSessionId}/complete
-POST /resources/{resourceId}/learning-sessions/{learningSessionId}/record
-POST /resources/{resourceId}/learning-sessions/{learningSessionId}/discard
-```
+※ `GET /resources/{resourceId}/details`（Resource 統合詳細）は Step 15 参照。  
+※ LearningSession 系 API は Step 16〜25 参照。
 
 ---
 
@@ -394,11 +709,12 @@ POST /resources/{resourceId}/learning-sessions/{learningSessionId}/discard
 
 | 項目 | 内容 |
 |------|------|
-| 実施日 | 2026-06-07 |
+| 実施日（Step 1〜14） | 2026-06-07 |
+| 実施日（Step 15〜25、27〜28） | 未実施（手順追加のみ） |
 | 環境 | local / localhost:8080 / PostgreSQL Docker Compose |
 | 前提 | DB を初期化した状態から確認 |
 
-### 確認した項目
+### 確認済み（2026-06-07）
 
 ```text
 Resource 作成
@@ -413,8 +729,21 @@ StudyMemo 作成
 StudyMemo 一覧取得
 StudyMemo 更新
 StudyMemo 論理削除
-Resource Detail 取得（統合詳細）
 存在しない Resource で 404 確認
 ```
 
 **結果:** 期待通り動作
+
+### 手順追加のみ・未実施
+
+```text
+Resource Detail 取得（統合詳細）
+LearningSession IMMEDIATE_REFLECTION 正常フロー
+LearningSession DELAYED_RECALL 正常フロー
+LearningSession discard
+LearningSession エラー系
+Resource Detail — 存在しない Resource で 404 確認
+Resource Detail — Progress 不存在で 404 確認
+```
+
+**結果:** 未実施（手順追加のみ）
