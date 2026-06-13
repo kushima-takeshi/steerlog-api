@@ -4,17 +4,19 @@
 
 ## 目的
 
-このドキュメントは、SteerLog MVPにおけるLearningSession / LearningSessionRecordの状態遷移、APIフロー、保存前確認、rawログ非保存方針を定義する。
+このドキュメントは、SteerLog MVP における LearningSession / LearningSessionRecord の状態遷移、API フロー、保存するもの/しないもの、raw ログ非保存方針を定義する。
 
-LearningSession実装、Service、Controller、DTO、テスト作成時は、この内容を基準にする。
+LearningSession 実装、Service、Controller、DTO、テスト作成時は、この内容を基準にする。
+
+> **実装状況（2026-06-11）**: start / responses / complete / record / discard はすべて実装済み。Lv.2 / Lv.3 到達処理も実装済み。AI は未連携で、`aiPrompt` / `resultDraft` は固定文言。
 
 ---
 
 # 1. LearningSessionの役割
 
-LearningSessionは、AI Reflection / Recallの実行単位である。
+LearningSession は、Reflection / Recall の実行単位である。
 
-LearningSessionは正式証跡ではない。  
+LearningSession は正式証跡ではない。  
 正式証跡は、ユーザーが保存した `LearningSessionRecord` である。
 
 ```text
@@ -29,13 +31,15 @@ learning_session_records
 
 # 2. MVPでの対象
 
-MVPではLearningSessionはResource単位で実行する。
+MVP では LearningSession は Resource 単位で実行する。  
+API もすべて Resource 配下に統一されている。
 
 ```text
 対象 = Resource
+ベースパス = /resources/{resourceId}/learning-sessions
 ```
 
-Section単位のLearningSessionはMVPでは実装しない。
+Section 単位の LearningSession は MVP では実装しない。
 
 理由：
 
@@ -48,7 +52,7 @@ LearningSessionはLv.2 / Lv.3のResource-wide証跡にする
 
 # 3. sessionType
 
-MVPでは2種類。
+MVP では2種類。
 
 ```text
 IMMEDIATE_REFLECTION
@@ -62,7 +66,7 @@ DELAYED_RECALL
 ```text
 Lv.2に関係する
 学習内容を自分の言葉で説明する
-AIが要約・概念・弱点・次アクションを整理する
+record保存でLv.2到達候補になる
 ```
 
 ## 3.2 DELAYED_RECALL
@@ -72,14 +76,15 @@ AIが要約・概念・弱点・次アクションを整理する
 ```text
 Lv.3に関係する
 時間が経っても思い出せるかを確認する
-Lv.2到達後でなければ開始できない
+Lv.2到達後（currentLevel >= 2）でなければ開始できない
+record保存でLv.3到達候補になる
 ```
 
 ---
 
 # 4. status
 
-LearningSession.statusは以下。
+LearningSession.status は以下。
 
 ```text
 IN_PROGRESS
@@ -102,8 +107,8 @@ discard
 
 ## 4.2 COMPLETED
 
-AI結果案 `resultDraft` 作成済み。  
-ユーザー確認待ち。
+全 step 回答済み。`resultDraft` をレスポンスで提示済み（DB 非保存）。  
+ユーザーの保存判断待ち。
 
 許可操作：
 
@@ -114,96 +119,107 @@ discard
 
 ## 4.3 RECORD_SAVED
 
-ユーザーが確認して保存済み。  
-LearningSessionRecord作成済み。
+ユーザーが保存し、`LearningSessionRecord` を作成済み。
 
 終端状態。
 
 ## 4.4 DISCARDED
 
-ユーザーが保存しなかった、または破棄した状態。
+ユーザーが破棄した状態。
 
 終端状態。  
-Level更新なし。  
-LearningSessionRecordなし。
+Level 更新なし。  
+LearningSessionRecord なし。
 
 ---
 
 # 5. 状態遷移
 
-```text
-IN_PROGRESS
-  ├─ responses → IN_PROGRESS
-  ├─ complete → COMPLETED
-  └─ discard → DISCARDED
+```mermaid
+stateDiagram-v2
+    [*] --> IN_PROGRESS: start API
 
-COMPLETED
-  ├─ record → RECORD_SAVED
-  └─ discard → DISCARDED
+    IN_PROGRESS --> IN_PROGRESS: responses API<br/>(currentStep++)
+    IN_PROGRESS --> COMPLETED: complete API<br/>(currentStep == totalSteps)
+    IN_PROGRESS --> DISCARDED: discard API
 
-RECORD_SAVED
-  └─ terminal
+    COMPLETED --> RECORD_SAVED: record API<br/>(LearningSessionRecord 作成 + Lv.2/Lv.3)
+    COMPLETED --> DISCARDED: discard API
 
-DISCARDED
-  └─ terminal
+    RECORD_SAVED --> [*]
+    DISCARDED --> [*]
 ```
+
+補足：
+
+- `responses` は `IN_PROGRESS` のまま `currentStep` を進めるだけ（自己遷移）
+- `complete` は `currentStep == totalSteps` のときのみ可能
+- `discard` は `IN_PROGRESS` / `COMPLETED` からのみ可能。`RECORD_SAVED` / `DISCARDED` からは不可
+- `RECORD_SAVED` / `DISCARDED` は終端状態（以降の遷移なし）
 
 ---
 
-# 6. rawログ非保存方針
+# 6. APIフロー
 
-SteerLogはチャットログ保存アプリではない。
+## 6.1 通常フロー（保存まで）
 
-MVPでは以下を正式保存しない。
+```mermaid
+flowchart TB
+    START["POST .../learning-sessions<br/>start / IN_PROGRESS"]
+    RESP["POST .../{id}/responses<br/>responses / currentStep++"]
+    COMP["POST .../{id}/complete<br/>complete / COMPLETED"]
+    REC["POST .../{id}/record<br/>record / RECORD_SAVED"]
+    LV["Lv.2 / Lv.3 到達判定<br/>Progress.currentLevel 更新"]
+    HIST["LevelHistory 作成<br/>(未作成のときのみ)"]
 
-```text
-ユーザーの生回答全文
-AI質問履歴全文
-AIとの会話ログ全文
-回答履歴全文
-外部LLMログ全文
+    START --> RESP
+    RESP -->|currentStep < totalSteps| RESP
+    RESP -->|currentStep == totalSteps| COMP
+    COMP --> REC
+    REC --> LV --> HIST
 ```
 
-responses APIやcomplete APIでは、ユーザー回答をリクエストで受け取ってAI生成に使う。  
-ただし、DBに正式保存しない。
+## 6.2 破棄フロー（分岐）
 
-保存するのは、AIが整理した `resultDraft` と、ユーザーが確認して保存した `LearningSessionRecord`。
+```mermaid
+flowchart LR
+    A["IN_PROGRESS"]
+    B["COMPLETED"]
+    D["POST .../{id}/discard<br/>DISCARDED"]
+
+    A -->|discard| D
+    B -->|discard| D
+```
+
+`RECORD_SAVED` / `DISCARDED` からは `discard` 不可（`LEARNING_SESSION_CANNOT_BE_DISCARDED`）。
 
 ---
 
-# 7. resultDraft
+# 7. 保存するもの / 保存しないもの
 
-## 7.1 役割
+SteerLog はチャットログ保存アプリではない。raw 回答や AI 会話ログは正式保存しない。
 
-`resultDraft` は、complete後にAIが生成する保存候補である。
+## 7.1 保存するもの
 
-`learning_sessions.result_draft JSONB` に一時保存する。
+| 対象 | 内容 |
+|------|------|
+| `LearningSession` | `status` / `currentStep` / `totalSteps` / `startedAt` / `completedAt` / `updatedAt` |
+| `LearningSessionRecord` | record API で作成する正式証跡（`summary` / `conceptTags` / `weakPointSummary` / `nextAction` / `aiAssessment` 等） |
+| `Progress` | record 到達時の `currentLevel` / `lastStudiedAt` / `updatedAt` |
+| `LevelHistory` | Lv.2 / Lv.3 の初到達履歴 |
 
-## 7.2 含める内容
+## 7.2 保存しないもの
 
-```json
-{
-  "summary": "...",
-  "conceptTags": ["REST", "HTTP"],
-  "weakPointTags": ["PATCH"],
-  "weakPointSummary": "...",
-  "nextAction": "...",
-  "aiAssessment": "NEEDS_REVIEW",
-  "generationBasis": "..."
-}
-```
-
-## 7.3 なぜDBに持つか
-
-```text
-record保存時にサーバー側のresultDraftを使うため
-AI生成部分をユーザーに改ざんさせないため
-保存前確認画面に表示するため
-```
+| 対象 | 備考 |
+|------|------|
+| responses API の raw 回答本文（`responseText`） | AI 生成の入力に使うのみ。DB 非保存 |
+| complete API の `resultDraft` | レスポンスでのみ返す。DB 非保存 |
+| AI との会話ログ全文 / AI 質問履歴全文 | 正式保存しない |
+| `recordSavedAt` / `discardedAt` 専用カラム | MVP では持たない（`updatedAt` で代替） |
 
 ---
 
-# 8. APIフロー
+# 8. APIフロー詳細
 
 ## 8.1 セッション開始
 
@@ -222,56 +238,53 @@ Request：
 処理：
 
 ```text
-1. Resource所有者チェック
-2. sessionType確認
-3. DELAYED_RECALLならProgress.currentLevel >= 2を確認
-4. 同一userId + resourceId + sessionTypeでIN_PROGRESS/COMPLETEDがないか確認
-5. LearningSession作成
-6. 最初のaiPromptを返す
+1. Resource所有者チェック（未存在/他人/論理削除 → RESOURCE_NOT_FOUND）
+2. Progress取得（未存在 → PROGRESS_NOT_FOUND）
+3. DELAYED_RECALLならProgress.currentLevel >= 2を確認（未満 → LEVEL_REQUIREMENT_NOT_MET）
+4. 同一userId + resourceId + sessionTypeでIN_PROGRESS/COMPLETEDがないか確認（あり → SESSION_ALREADY_IN_PROGRESS）
+5. LearningSession作成（status = IN_PROGRESS, currentStep = 1, totalSteps = 3）
+6. 最初のaiPromptをレスポンスで返す（DB非保存）
 ```
+
+`nextAction.type = SUBMIT_RESPONSE`
 
 ---
 
 ## 8.2 responses
 
 ```http
-POST /learning-sessions/{learningSessionId}/responses
+POST /resources/{resourceId}/learning-sessions/{learningSessionId}/responses
 ```
 
 役割：
 
 ```text
-ユーザー回答をもとに次のAI質問を生成する。
-```
-
-注意：
-
-```text
-回答を正式保存するAPIではない。
+回答を送信し、次のaiPromptを取得する。回答本文はDBに正式保存しない。
 ```
 
 Request：
 
 ```json
 {
-  "responses": [
-    {
-      "step": 1,
-      "prompt": "このResourceで学んだ内容を説明してください。",
-      "response": "REST APIでは..."
-    }
-  ]
+  "responseText": "REST APIではリソースをURIで表現し..."
 }
 ```
 
 処理：
 
 ```text
-1. LearningSession.status = IN_PROGRESS を確認
-2. responsesをもとに次のaiPromptを生成
-3. currentStepを進める
-4. aiPromptを更新
-5. 次の質問を返す
+1. status = IN_PROGRESS を確認（それ以外 → LEARNING_SESSION_CANNOT_ACCEPT_RESPONSE）
+2. currentStep < totalSteps を確認（最終step到達済み → LEARNING_SESSION_CANNOT_ACCEPT_RESPONSE）
+3. currentStep を +1
+4. status は IN_PROGRESS のまま
+5. 次のaiPromptをレスポンスで返す（DB非保存）
+```
+
+`nextAction.type`：
+
+```text
+最終step未到達: SUBMIT_RESPONSE
+最終step到達後: COMPLETE_SESSION
 ```
 
 ---
@@ -279,152 +292,88 @@ Request：
 ## 8.3 complete
 
 ```http
-POST /learning-sessions/{learningSessionId}/complete
+POST /resources/{resourceId}/learning-sessions/{learningSessionId}/complete
 ```
 
-役割：
-
-```text
-全回答をもとにAIがresultDraftを生成する。
-```
-
-Request：
-
-```json
-{
-  "responses": [
-    {
-      "step": 1,
-      "prompt": "このResourceで学んだ内容を説明してください。",
-      "response": "REST APIでは..."
-    },
-    {
-      "step": 2,
-      "prompt": "自分の実装にどう活かせますか？",
-      "response": "Progress更新APIで..."
-    },
-    {
-      "step": 3,
-      "prompt": "まだ曖昧な点は何ですか？",
-      "response": "PATCHの冪等性が曖昧です。"
-    }
-  ]
-}
-```
+Request Body は不要。
 
 処理：
 
 ```text
-1. LearningSession.status = IN_PROGRESS を確認
-2. responsesをもとにAIがresultDraftを生成
-3. result_draftに保存
-4. status = COMPLETED
-5. completed_at = now
-6. resultDraftを返す
+1. status = IN_PROGRESS を確認（それ以外 → LEARNING_SESSION_CANNOT_BE_COMPLETED）
+2. currentStep == totalSteps を確認（未到達 → LEARNING_SESSION_CANNOT_BE_COMPLETED）
+3. status = COMPLETED
+4. completedAt = now
+5. resultDraftを固定テンプレートで生成しレスポンスで返す（DB非保存）
 ```
+
+`nextAction.type = SAVE_RECORD`
+
+`resultDraft` はレスポンスでのみ返す。**DB には保存しない**。
 
 ---
 
-## 8.4 保存前確認
-
-complete後、画面にresultDraftを表示する。
-
-表示対象：
-
-```text
-summary
-conceptTags
-weakPointTags
-weakPointSummary
-nextAction
-aiAssessment
-generationBasis
-```
-
-画面文言例：
-
-```text
-この内容を学習証跡として保存しますか？
-AI生成内容は保存後に編集できません。
-納得できない場合は保存せず、もう一度セッションを実行してください。
-```
-
-ユーザーができること：
-
-```text
-保存する
-保存しない
-userCommentを追加する
-```
-
-ユーザーができないこと：
-
-```text
-summaryの編集
-conceptTagsの編集
-weakPointTagsの編集
-weakPointSummaryの編集
-nextActionの編集
-aiAssessmentの編集
-generationBasisの編集
-```
-
----
-
-## 8.5 record
+## 8.4 record
 
 ```http
-POST /learning-sessions/{learningSessionId}/record
+POST /resources/{resourceId}/learning-sessions/{learningSessionId}/record
 ```
 
 役割：
 
 ```text
-ユーザー確認済みのresultDraftをLearningSessionRecordとして正式保存する。
+LearningSessionRecordを正式保存し、sessionTypeに応じてLv.2 / Lv.3到達処理を行う。
 ```
 
 Request：
 
 ```json
 {
-  "userComment": "PUT/PATCHの違いはまだ弱いので、次に自分のProgress更新APIで整理する。"
+  "summary": "学習内容の要点まとめ",
+  "conceptTags": ["reflection", "understanding"],
+  "weakPointSummary": "まだ曖昧な点あり",
+  "nextAction": "次回復習する",
+  "aiAssessment": "PASSED"
 }
 ```
 
 処理：
 
 ```text
-1. LearningSession.status = COMPLETED を確認
-2. resultDraftが存在することを確認
-3. resultDraft.aiAssessment != OFF_TOPIC を確認
-4. LearningSessionRecord作成
-5. LearningSession.status = RECORD_SAVED
-6. recordSavedAt = now
-7. Progress.lastStudiedAt = now
-8. sessionTypeに応じてLv.2 / Lv.3到達判定
-9. LevelHistory作成
+1. status = COMPLETED を確認（それ以外 → LEARNING_SESSION_RECORD_CANNOT_BE_SAVED）
+2. aiAssessment != OFF_TOPIC を確認（OFF_TOPIC → LEARNING_SESSION_RECORD_CANNOT_BE_SAVED）
+3. 同一LearningSessionからのRecord重複がないことを確認（重複 → LEARNING_SESSION_RECORD_CANNOT_BE_SAVED）
+4. LearningSessionRecord作成（Request本文から）
+5. LearningSession.status = RECORD_SAVED、updatedAt = now
+6. Progress.lastStudiedAt / updatedAt = now
+7. sessionTypeに応じてLv.2 / Lv.3到達判定（currentLevel < targetLevel なら更新、下げない）
+8. LevelHistoryがなければ作成
 ```
 
 注意：
 
 ```text
-AI生成部分はRequestで受け取らない。
-サーバー側のresultDraftを使用する。
+complete の resultDraft をサーバー側で自動コピーしない。
+クライアントが Request 本文で Record 内容を送る。
 ```
 
 ---
 
-## 8.6 discard
+## 8.5 discard
 
 ```http
-POST /learning-sessions/{learningSessionId}/discard
+POST /resources/{resourceId}/learning-sessions/{learningSessionId}/discard
 ```
+
+Request Body は不要。
 
 処理：
 
 ```text
-status = DISCARDED
-discarded_at = now
+1. status が IN_PROGRESS または COMPLETED であることを確認（RECORD_SAVED / DISCARDED → LEARNING_SESSION_CANNOT_BE_DISCARDED）
+2. status = DISCARDED
+3. updatedAt = now
+4. completedAt は変更しない
 ```
 
 効果：
@@ -437,9 +386,24 @@ LevelHistoryは作成しない
 
 ---
 
-# 9. aiAssessment
+# 9. sessionTypeごとの差分
 
-## 9.1 値
+| 項目 | IMMEDIATE_REFLECTION | DELAYED_RECALL |
+|------|----------------------|----------------|
+| 開始条件 | Resource が存在すれば可 | `Progress.currentLevel >= 2` |
+| 到達候補 | Lv.2 | Lv.3 |
+| targetLevel | 2 | 3 |
+| reasonCode | `IMMEDIATE_REFLECTION_RECORDED` | `DELAYED_RECALL_RECORDED` |
+| sourceType | `LEARNING_SESSION_RECORD` | `LEARNING_SESSION_RECORD` |
+| sourceId | `learningSessionRecordId` | `learningSessionRecordId` |
+
+両者とも `aiAssessment = PASSED または NEEDS_REVIEW` のときに到達対象。`OFF_TOPIC` は保存不可。
+
+---
+
+# 10. aiAssessment
+
+## 10.1 値
 
 ```text
 PASSED
@@ -447,31 +411,31 @@ NEEDS_REVIEW
 OFF_TOPIC
 ```
 
-## 9.2 PASSED
+## 10.2 PASSED
 
-対象Resourceについて、自分の言葉である程度説明できている。
+対象 Resource について、自分の言葉である程度説明できている。
 
-Level到達候補。
+Level 到達候補。
 
-## 9.3 NEEDS_REVIEW
+## 10.3 NEEDS_REVIEW
 
-対象Resourceに関係する回答だが、浅い・曖昧・混乱がある。
+対象 Resource に関係する回答だが、浅い・曖昧・混乱がある。
 
-Level到達候補。  
-ただしUIでは「要復習あり」として表示する。
+Level 到達候補。  
+ただし UI では「要復習あり」として表示する。
 
-## 9.4 OFF_TOPIC
+## 10.4 OFF_TOPIC
 
-対象Resourceの証跡として無効。
+対象 Resource の証跡として無効。
 
-LearningSessionRecord保存不可。  
-Level到達不可。
+LearningSessionRecord 保存不可（`LEARNING_SESSION_RECORD_CANNOT_BE_SAVED`）。  
+Level 到達不可。
 
 ---
 
-# 10. 同時セッション制御
+# 11. 同時セッション制御
 
-同一userId + resourceId + sessionTypeについて、以下のstatusのLearningSessionがある場合、新規開始不可。
+同一 userId + resourceId + sessionType について、以下の status の LearningSession がある場合、新規開始不可。
 
 ```text
 IN_PROGRESS
@@ -481,10 +445,10 @@ COMPLETED
 エラー：
 
 ```text
-SESSION_ALREADY_IN_PROGRESS
+SESSION_ALREADY_IN_PROGRESS（409）
 ```
 
-PostgreSQLでは部分ユニークインデックスで制御できる。
+PostgreSQL では部分ユニークインデックスで制御する。
 
 ```sql
 CREATE UNIQUE INDEX uq_learning_sessions_active
@@ -494,9 +458,9 @@ WHERE status IN ('IN_PROGRESS', 'COMPLETED');
 
 ---
 
-# 11. DELAYED_RECALL開始条件
+# 12. DELAYED_RECALL開始条件
 
-DELAYED_RECALLは、対象ResourceがLv.2以上でなければ開始できない。
+DELAYED_RECALL は、対象 Resource が Lv.2 以上でなければ開始できない。
 
 ```text
 Progress.currentLevel >= 2
@@ -505,54 +469,54 @@ Progress.currentLevel >= 2
 満たさない場合：
 
 ```text
-LEVEL_REQUIREMENT_NOT_MET
+LEVEL_REQUIREMENT_NOT_MET（400）
 ```
 
 ---
 
-# 12. エラーコード候補
+# 13. エラー条件一覧
 
-```text
-RESOURCE_NOT_FOUND
-PROGRESS_NOT_FOUND
-INVALID_SESSION_TYPE
-LEVEL_REQUIREMENT_NOT_MET
-SESSION_ALREADY_IN_PROGRESS
-INVALID_SESSION_STATUS
-RECORD_NOT_ELIGIBLE
-RECORD_ALREADY_SAVED
-```
+| 条件 | エラーコード | HTTP |
+|------|-------------|------|
+| Resource が存在しない / 他人の Resource / 論理削除済み | `RESOURCE_NOT_FOUND` | 404 |
+| Progress が存在しない | `PROGRESS_NOT_FOUND` | 404 |
+| `DELAYED_RECALL` で Lv.2 未満 | `LEVEL_REQUIREMENT_NOT_MET` | 400 |
+| 同一 userId + resourceId + sessionType で active session がある | `SESSION_ALREADY_IN_PROGRESS` | 409 |
+| LearningSession が見つからない | `LEARNING_SESSION_NOT_FOUND` | 404 |
+| response を受け付けられない状態 | `LEARNING_SESSION_CANNOT_ACCEPT_RESPONSE` | 400 |
+| complete できない状態 | `LEARNING_SESSION_CANNOT_BE_COMPLETED` | 400 |
+| record 保存できない状態（status不正 / OFF_TOPIC / 重複） | `LEARNING_SESSION_RECORD_CANNOT_BE_SAVED` | 400 |
+| discard できない状態 | `LEARNING_SESSION_CANNOT_BE_DISCARDED` | 400 |
 
 ---
 
-# 13. MVPでやらないこと
+# 14. MVPでやらないこと
 
 ```text
 LearningSessionをSection単位にする
 会話ログ全文を保存する
-ユーザー回答全文を正式保存する
+ユーザー回答全文（responseText）を正式保存する
 AI質問履歴を保存する
-AI生成部分をユーザー編集可能にする
+resultDraftをDBに保存する
 OFF_TOPICを保存可能にする
-保存前確認なしで自動保存する
+AI連携（aiPrompt / resultDraft の動的生成）
 ```
 
 ---
 
-# 14. まとめ
+# 15. まとめ
 
-LearningSessionの基本フローは以下。
+LearningSession の基本フローは以下。
 
 ```text
-start
-→ IN_PROGRESS
-→ responses
-→ complete
-→ COMPLETED / resultDraft確認
-→ record or discard
-→ RECORD_SAVED or DISCARDED
+start → IN_PROGRESS
+→ responses（currentStep を進める、responseText は DB 非保存）
+→ complete → COMPLETED（resultDraft はレスポンスのみ・DB 非保存）
+→ record → RECORD_SAVED（LearningSessionRecord 保存 + Lv.2/Lv.3 到達）
+
+任意タイミング: discard（IN_PROGRESS / COMPLETED → DISCARDED）
 ```
 
-正式証跡になるのは、ユーザーが保存したLearningSessionRecordのみ。  
-保存しない場合、Levelは上がらない。  
-raw回答ログは正式保存しない。
+正式証跡になるのは、ユーザーが保存した LearningSessionRecord のみ。  
+保存しない場合、Level は上がらない。  
+raw 回答ログ（`responseText`）と `resultDraft` は正式保存しない。
