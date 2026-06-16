@@ -3,7 +3,7 @@ package com.steerlog.controller;
 import com.steerlog.dto.request.CreateResourceRequest;
 import com.steerlog.dto.request.UpdateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
-import com.steerlog.dto.response.ResourceDetailResponse;
+import com.steerlog.dto.response.ResourceWithProgressResponse;
 import com.steerlog.dto.response.ResourceListItemResponse;
 import com.steerlog.service.ResourceService;
 import jakarta.validation.Valid;
@@ -46,16 +46,16 @@ public class ResourceController {
     }
 
     @GetMapping("/{resourceId}")
-    public ResponseEntity<ResourceDetailResponse> getResourceDetail(@PathVariable Long resourceId) {
-        ResourceDetailResponse response = resourceService.getResourceDetail(TEMP_USER_ID, resourceId);
+    public ResponseEntity<ResourceWithProgressResponse> getResourceDetail(@PathVariable Long resourceId) {
+        ResourceWithProgressResponse response = resourceService.getResourceDetail(TEMP_USER_ID, resourceId);
         return ResponseEntity.ok(response);
     }
 
     @PatchMapping("/{resourceId}")
-    public ResponseEntity<ResourceDetailResponse> updateResource(
+    public ResponseEntity<ResourceWithProgressResponse> updateResource(
             @PathVariable Long resourceId,
             @Valid @RequestBody UpdateResourceRequest request) {
-        ResourceDetailResponse response = resourceService.updateResource(TEMP_USER_ID, resourceId, request);
+        ResourceWithProgressResponse response = resourceService.updateResource(TEMP_USER_ID, resourceId, request);
         return ResponseEntity.ok(response);
     }
 

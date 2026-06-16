@@ -5,7 +5,7 @@ import com.steerlog.dto.request.CreateResourceRequest;
 import com.steerlog.dto.request.UpdateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ProgressResponse;
-import com.steerlog.dto.response.ResourceDetailResponse;
+import com.steerlog.dto.response.ResourceWithProgressResponse;
 import com.steerlog.dto.response.ResourceListItemResponse;
 import com.steerlog.entity.ProgressStatus;
 import com.steerlog.entity.ResourceType;
@@ -107,7 +107,7 @@ class ResourceControllerTest {
     @Test
     void getResourceDetail_shouldReturn200WithResourceAndProgress() throws Exception {
         Long resourceId = 10L;
-        ResourceDetailResponse response = buildResourceDetailResponse(resourceId, "Webを支える技術");
+        ResourceWithProgressResponse response = buildResourceWithProgressResponse(resourceId, "Webを支える技術");
 
         when(resourceService.getResourceDetail(TEMP_USER_ID, resourceId)).thenReturn(response);
 
@@ -127,7 +127,7 @@ class ResourceControllerTest {
         UpdateResourceRequest request = new UpdateResourceRequest();
         request.setTitle("更新後タイトル");
 
-        ResourceDetailResponse response = buildResourceDetailResponse(resourceId, "更新後タイトル");
+        ResourceWithProgressResponse response = buildResourceWithProgressResponse(resourceId, "更新後タイトル");
 
         when(resourceService.updateResource(eq(TEMP_USER_ID), eq(resourceId), any(UpdateResourceRequest.class)))
                 .thenReturn(response);
@@ -231,10 +231,10 @@ class ResourceControllerTest {
         return response;
     }
 
-    private ResourceDetailResponse buildResourceDetailResponse(Long resourceId, String title) {
+    private ResourceWithProgressResponse buildResourceWithProgressResponse(Long resourceId, String title) {
         Instant now = Instant.parse("2026-06-03T10:00:00Z");
 
-        ResourceDetailResponse response = new ResourceDetailResponse();
+        ResourceWithProgressResponse response = new ResourceWithProgressResponse();
         response.setResourceId(resourceId);
         response.setResourceType(ResourceType.BOOK);
         response.setTitle(title);
