@@ -4,7 +4,7 @@ import com.steerlog.entity.ResourceType;
 
 import java.time.Instant;
 
-public class ResourceDetailResponse {
+public class ResourceWithProgressResponse {
 
     private Long resourceId;
     private ResourceType resourceType;
@@ -16,7 +16,7 @@ public class ResourceDetailResponse {
     private Instant updatedAt;
     private ProgressResponse progress;
 
-    public ResourceDetailResponse() {
+    public ResourceWithProgressResponse() {
     }
 
     public Long getResourceId() {

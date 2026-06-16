@@ -4,7 +4,7 @@ import com.steerlog.dto.request.CreateResourceRequest;
 import com.steerlog.dto.request.UpdateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ProgressResponse;
-import com.steerlog.dto.response.ResourceDetailResponse;
+import com.steerlog.dto.response.ResourceWithProgressResponse;
 import com.steerlog.dto.response.ResourceListItemResponse;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.entity.Progress;
@@ -63,7 +63,7 @@ public class ResourceService {
     }
 
     @Transactional(readOnly = true)
-    public ResourceDetailResponse getResourceDetail(Long userId, Long resourceId) {
+    public ResourceWithProgressResponse getResourceDetail(Long userId, Long resourceId) {
         Resource resource = resourceRepository
                 .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
@@ -72,7 +72,7 @@ public class ResourceService {
                 .findByUserIdAndResourceId(userId, resourceId)
                 .orElseThrow(() -> new RuntimeException("Progress not found"));
 
-        return toResourceDetailResponse(resource, progress);
+        return toResourceWithProgressResponse(resource, progress);
     }
 
     @Transactional(readOnly = true)
@@ -114,7 +114,7 @@ public class ResourceService {
     }
 
     @Transactional
-    public ResourceDetailResponse updateResource(Long userId, Long resourceId, UpdateResourceRequest request) {
+    public ResourceWithProgressResponse updateResource(Long userId, Long resourceId, UpdateResourceRequest request) {
         Resource resource = resourceRepository
                 .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
@@ -139,7 +139,7 @@ public class ResourceService {
                 .findByUserIdAndResourceId(userId, resourceId)
                 .orElseThrow(() -> new RuntimeException("Progress not found"));
 
-        return toResourceDetailResponse(savedResource, progress);
+        return toResourceWithProgressResponse(savedResource, progress);
     }
 
     private CreateResourceResponse toCreateResourceResponse(Resource resource, Progress progress) {
@@ -173,8 +173,8 @@ public class ResourceService {
         return response;
     }
 
-    private ResourceDetailResponse toResourceDetailResponse(Resource resource, Progress progress) {
-        ResourceDetailResponse response = new ResourceDetailResponse();
+    private ResourceWithProgressResponse toResourceWithProgressResponse(Resource resource, Progress progress) {
+        ResourceWithProgressResponse response = new ResourceWithProgressResponse();
         response.setResourceId(resource.getResourceId());
         response.setResourceType(resource.getResourceType());
         response.setTitle(resource.getTitle());

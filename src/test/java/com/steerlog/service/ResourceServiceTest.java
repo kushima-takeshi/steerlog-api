@@ -3,7 +3,7 @@ package com.steerlog.service;
 import com.steerlog.dto.request.CreateResourceRequest;
 import com.steerlog.dto.request.UpdateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
-import com.steerlog.dto.response.ResourceDetailResponse;
+import com.steerlog.dto.response.ResourceWithProgressResponse;
 import com.steerlog.dto.response.ResourceListItemResponse;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.entity.Progress;
@@ -128,7 +128,7 @@ class ResourceServiceTest {
         when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
                 .thenReturn(Optional.of(progress));
 
-        ResourceDetailResponse response = resourceService.getResourceDetail(userId, resourceId);
+        ResourceWithProgressResponse response = resourceService.getResourceDetail(userId, resourceId);
 
         verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
         verify(progressRepository).findByUserIdAndResourceId(userId, resourceId);
@@ -323,7 +323,7 @@ class ResourceServiceTest {
         when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
                 .thenReturn(Optional.of(progress));
 
-        ResourceDetailResponse response = resourceService.updateResource(userId, resourceId, request);
+        ResourceWithProgressResponse response = resourceService.updateResource(userId, resourceId, request);
 
         verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
         verify(progressRepository).findByUserIdAndResourceId(userId, resourceId);
