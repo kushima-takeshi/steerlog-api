@@ -25,6 +25,8 @@ docs/
   06-implementation-rules.md
   07-implementation-order.md
   08-ai-development-workflow.md
+  09-manual-api-check.md
+  10-resource-detail-design.md
 
 docs/archive/
   README.md
@@ -92,9 +94,10 @@ ID方針
 datetime方針
 削除方針
 主要8テーブル
+ドメイン関係図（§2.5）
 制約
 Index
-Flyway作成順
+Flyway作成順（V1〜V9）
 ```
 
 Flyway migration、Entity、Repository作成時に読ませる。
@@ -200,10 +203,47 @@ Phase 4: Lv.1 + LevelHistory
 Phase 5: StudyMemo
 Phase 6: LearningSession
 Phase 7: LearningSessionRecord + Lv.2/Lv.3
-Phase 8: 一覧・詳細整理
+Phase 8: Resource Detail 統合詳細
 ```
 
-タスク分割やスプリント計画に使う。
+タスク分割やスプリント計画に使う。  
+**実装状況（2026-06-13）**: Phase 1〜8 はコード上完了。§1.1 のサマリ表は未更新の可能性あり。
+
+---
+
+## 09-manual-api-check.md
+
+実装済み API の curl 手動確認手順。
+
+主な内容：
+
+```text
+Resource / Section / Progress / LevelHistory / StudyMemo
+Resource Detail（GET /details）
+LearningSession 正常フロー（IMMEDIATE_REFLECTION / DELAYED_RECALL）
+discard / エラー系
+手動確認履歴
+```
+
+ローカル動作確認時に使う。
+
+---
+
+## 10-resource-detail-design.md
+
+`GET /resources/{resourceId}/details` の設計ドキュメント。
+
+主な内容：
+
+```text
+集約対象（Resource / Progress / Sections+StudyStatus / Memos / LevelHistories / Records）
+Response DTO 構造
+Service 取得順序
+N+1 回避方針
+エラー方針
+```
+
+Resource Detail API 実装・改修時に読ませる。
 
 ---
 
@@ -281,6 +321,24 @@ docs/06-implementation-rules.md
 
 ---
 
+## Resource Detail実装時
+
+```text
+docs/03-api-design.md
+docs/06-implementation-rules.md
+docs/10-resource-detail-design.md
+```
+
+---
+
+## 手動確認時
+
+```text
+docs/09-manual-api-check.md
+```
+
+---
+
 # AIコード生成時の基本プロンプト
 
 ```text
@@ -318,9 +376,25 @@ READMEや面接説明の材料
 
 ---
 
-# MVP実装時の最初のゴール
+# MVP実装の現在地（2026-06-13）
 
-最初の縦切りは以下。
+Phase 1〜8 まで実装済み。
+
+```text
+Resource 登録〜Lv.1（Section / complete-initial-study）
+StudyMemo CRUD
+LearningSession（start / responses / complete / record / discard）
+Lv.2 / Lv.3 到達
+GET /resources/{resourceId}/details（統合詳細）
+```
+
+最初の縦切り（§11）は完了済み。上記に加え、LearningSession と Resource Detail まで到達している。
+
+---
+
+# 最初の縦切り（参考）
+
+最初に作った縦切りは以下。
 
 ```text
 POST /resources
