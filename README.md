@@ -133,7 +133,6 @@ mvn test
 - `PATCH /resources/{resourceId}/sections/{sectionId}`
 - `DELETE /resources/{resourceId}/sections/{sectionId}`
 - StudyMemo `tags` / `important`
-- `docs/07` の Phase サマリ更新（実装は Phase 8 まで完了）
 
 ## MVP 外（まだ作らない）
 
