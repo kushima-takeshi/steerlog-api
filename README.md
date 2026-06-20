@@ -7,6 +7,35 @@ SteerLog API は、エンジニアの学習 Resource、進捗、Section、メモ
 
 ---
 
+## UI Mockup / 画面イメージ
+
+SteerLog は現在、バックエンド API を中心に実装しているアプリケーションです。  
+以下の画面は、実装済み API が将来的にどのようなユーザー体験を支えるかを示すための UI モックです。
+
+> 現時点ではフロントエンド実装ではなく、SteerLog API が支える画面イメージとして作成しています。
+
+### UI Flow
+
+![SteerLog UI Mockup Flow](docs/mockups/steerlog-ui-flow.png)
+
+学習リソースを選択し、リソース詳細から振り返りチェックを開始し、回答・確認・記録保存を通じて学習証跡として残す流れを表しています。
+
+### Screens
+
+| No | 画面 | 役割 | 画像 |
+| -: | ---------- | ------------------------------ | ------------------------------------------------ |
+| 1 | リソース一覧 | 学習対象のリソースを一覧し、詳細画面へ進む入口 | [画像を見る](docs/mockups/01-resource-list.png) |
+| 2 | リソース詳細 | 現在レベル、学習済みセクション、メモ、次のステップを確認 | [画像を見る](docs/mockups/02-resource-detail.png) |
+| 3 | 振り返りチェック開始 | Lv.1 のリソースに対して、振り返りチェックを開始 | [画像を見る](docs/mockups/03-reflection-start.png) |
+| 4 | 回答画面 | 問いに対して自分の言葉で回答。音声入力も補助的に利用可能 | [画像を見る](docs/mockups/04-reflection-answer.png) |
+| 5 | 確認画面 | 質問・回答と、保存される整理内容を確認 | [画像を見る](docs/mockups/05-reflection-review.png) |
+| 6 | 完了画面 | 記録保存後、Lv.1 から Lv.2 へ更新されたことを確認 | [画像を見る](docs/mockups/06-reflection-complete.png) |
+
+この UI モックは、完成済みのフロントエンドではなく、バックエンド API の利用イメージを伝えるための資料です。  
+実装済み API では、Resource / Progress / ResourceSection / StudyMemo / LearningSession / LearningSessionRecord / LevelHistory を扱い、学習リソースと振り返り記録を紐づけて管理します。
+
+---
+
 ## 技術スタック
 
 - Java 21
