@@ -121,6 +121,67 @@ class StudyMemoControllerTest {
     }
 
     @Test
+    void getMemo_shouldReturn200() throws Exception {
+        Long resourceId = 10L;
+        Long memoId = 500L;
+        Instant now = Instant.parse("2026-06-03T10:00:00Z");
+
+        StudyMemoResponse response = new StudyMemoResponse();
+        response.setStudyMemoId(memoId);
+        response.setResourceId(resourceId);
+        response.setMemoType(StudyMemoType.LEARNED);
+        response.setContent("HTTPの基本を理解した");
+        response.setCreatedAt(now);
+        response.setUpdatedAt(now);
+
+        when(studyMemoService.getMemo(TEMP_USER_ID, resourceId, memoId))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/resources/{resourceId}/memos/{memoId}", resourceId, memoId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.studyMemoId").value(500))
+                .andExpect(jsonPath("$.resourceId").value(10))
+                .andExpect(jsonPath("$.memoType").value("LEARNED"))
+                .andExpect(jsonPath("$.content").value("HTTPの基本を理解した"))
+                .andExpect(jsonPath("$.createdAt").value("2026-06-03T10:00:00Z"))
+                .andExpect(jsonPath("$.updatedAt").value("2026-06-03T10:00:00Z"));
+
+        verify(studyMemoService).getMemo(TEMP_USER_ID, resourceId, memoId);
+    }
+
+    @Test
+    void getMemo_shouldReturn404WhenResourceNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long memoId = 500L;
+
+        when(studyMemoService.getMemo(TEMP_USER_ID, resourceId, memoId))
+                .thenThrow(new ResourceNotFoundException("Resource not found"));
+
+        mockMvc.perform(get("/resources/{resourceId}/memos/{memoId}", resourceId, memoId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+
+        verify(studyMemoService).getMemo(TEMP_USER_ID, resourceId, memoId);
+    }
+
+    @Test
+    void getMemo_shouldReturn404WhenMemoNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long memoId = 500L;
+
+        when(studyMemoService.getMemo(TEMP_USER_ID, resourceId, memoId))
+                .thenThrow(new ResourceNotFoundException("Resource not found"));
+
+        mockMvc.perform(get("/resources/{resourceId}/memos/{memoId}", resourceId, memoId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+
+        verify(studyMemoService).getMemo(TEMP_USER_ID, resourceId, memoId);
+    }
+
+    @Test
     void createMemo_shouldReturn404WhenResourceNotFound() throws Exception {
         Long resourceId = 10L;
 

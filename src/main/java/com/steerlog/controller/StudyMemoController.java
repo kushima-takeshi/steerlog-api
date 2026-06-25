@@ -44,6 +44,14 @@ public class StudyMemoController {
         return ResponseEntity.ok(responses);
     }
 
+    @GetMapping("/{memoId}")
+    public ResponseEntity<StudyMemoResponse> getMemo(
+            @PathVariable Long resourceId,
+            @PathVariable Long memoId) {
+        StudyMemoResponse response = studyMemoService.getMemo(TEMP_USER_ID, resourceId, memoId);
+        return ResponseEntity.ok(response);
+    }
+
     @PatchMapping("/{memoId}")
     public ResponseEntity<StudyMemoResponse> updateMemo(
             @PathVariable Long resourceId,
