@@ -58,6 +58,139 @@ class SectionStudyStatusServiceTest {
     private SectionStudyStatusService sectionStudyStatusService;
 
     @Test
+    void getStudyStatus_shouldReturnStudyStatus() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+        Instant studiedAt = Instant.parse("2026-06-05T10:00:00Z");
+        Instant before = Instant.parse("2026-06-01T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId, before);
+        ResourceSection section = buildSection(resourceSectionId, userId, resourceId, before);
+        SectionStudyStatus studyStatus = buildStudyStatus(
+                200L, userId, resourceId, resourceSectionId, studiedAt, before);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.of(section));
+        when(sectionStudyStatusRepository.findByUserIdAndResourceSectionId(userId, resourceSectionId))
+                .thenReturn(Optional.of(studyStatus));
+
+        SectionStudyStatusResponse response =
+                sectionStudyStatusService.getStudyStatus(userId, resourceId, resourceSectionId);
+
+        assertThat(response.getSectionStudyStatusId()).isEqualTo(200L);
+        assertThat(response.getResourceId()).isEqualTo(resourceId);
+        assertThat(response.getResourceSectionId()).isEqualTo(resourceSectionId);
+        assertThat(response.getStudiedAt()).isEqualTo(studiedAt);
+        assertThat(response.getCreatedAt()).isEqualTo(before);
+        assertThat(response.getUpdatedAt()).isEqualTo(before);
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(resourceSectionRepository).findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId);
+        verify(sectionStudyStatusRepository).findByUserIdAndResourceSectionId(userId, resourceSectionId);
+        verify(progressRepository, never()).findByUserIdAndResourceId(any(), any());
+    }
+
+    @Test
+    void getStudyStatus_shouldReturnUnstudiedStatusWhenStudiedAtIsNull() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+        Instant before = Instant.parse("2026-06-01T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId, before);
+        ResourceSection section = buildSection(resourceSectionId, userId, resourceId, before);
+        SectionStudyStatus studyStatus = buildStudyStatus(
+                200L, userId, resourceId, resourceSectionId, null, before);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.of(section));
+        when(sectionStudyStatusRepository.findByUserIdAndResourceSectionId(userId, resourceSectionId))
+                .thenReturn(Optional.of(studyStatus));
+
+        SectionStudyStatusResponse response =
+                sectionStudyStatusService.getStudyStatus(userId, resourceId, resourceSectionId);
+
+        assertThat(response.getStudiedAt()).isNull();
+        assertThat(response.getSectionStudyStatusId()).isEqualTo(200L);
+    }
+
+    @Test
+    void getStudyStatus_shouldThrowResourceNotFoundExceptionWhenResourceNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sectionStudyStatusService.getStudyStatus(userId, resourceId, resourceSectionId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(resourceSectionRepository, never())
+                .findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(any(), any(), any());
+        verify(sectionStudyStatusRepository, never()).findByUserIdAndResourceSectionId(any(), any());
+    }
+
+    @Test
+    void getStudyStatus_shouldThrowResourceNotFoundExceptionWhenSectionNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+        Instant before = Instant.parse("2026-06-01T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId, before);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sectionStudyStatusService.getStudyStatus(userId, resourceId, resourceSectionId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceSectionRepository).findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId);
+        verify(sectionStudyStatusRepository, never()).findByUserIdAndResourceSectionId(any(), any());
+    }
+
+    @Test
+    void getStudyStatus_shouldThrowRuntimeExceptionWhenSectionStudyStatusNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+        Instant before = Instant.parse("2026-06-01T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId, before);
+        ResourceSection section = buildSection(resourceSectionId, userId, resourceId, before);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.of(section));
+        when(sectionStudyStatusRepository.findByUserIdAndResourceSectionId(userId, resourceSectionId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sectionStudyStatusService.getStudyStatus(userId, resourceId, resourceSectionId))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("SectionStudyStatus not found");
+
+        verify(sectionStudyStatusRepository).findByUserIdAndResourceSectionId(userId, resourceSectionId);
+    }
+
+    @Test
     void updateStudyStatus_shouldUpdateStudiedAtAndProgress() {
         Long userId = 1L;
         Long resourceId = 10L;

@@ -5,6 +5,7 @@ import com.steerlog.dto.response.SectionStudyStatusResponse;
 import com.steerlog.service.SectionStudyStatusService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,6 +22,15 @@ public class SectionStudyStatusController {
 
     public SectionStudyStatusController(SectionStudyStatusService sectionStudyStatusService) {
         this.sectionStudyStatusService = sectionStudyStatusService;
+    }
+
+    @GetMapping
+    public ResponseEntity<SectionStudyStatusResponse> getStudyStatus(
+            @PathVariable Long resourceId,
+            @PathVariable Long sectionId) {
+        SectionStudyStatusResponse response =
+                sectionStudyStatusService.getStudyStatus(TEMP_USER_ID, resourceId, sectionId);
+        return ResponseEntity.ok(response);
     }
 
     @PatchMapping

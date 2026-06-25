@@ -45,6 +45,24 @@ public class SectionStudyStatusService {
         this.levelHistoryRepository = levelHistoryRepository;
     }
 
+    @Transactional(readOnly = true)
+    public SectionStudyStatusResponse getStudyStatus(Long userId, Long resourceId, Long resourceSectionId) {
+        resourceRepository
+                .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        resourceSectionRepository
+                .findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                        resourceSectionId, userId, resourceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        SectionStudyStatus studyStatus = sectionStudyStatusRepository
+                .findByUserIdAndResourceSectionId(userId, resourceSectionId)
+                .orElseThrow(() -> new RuntimeException("SectionStudyStatus not found"));
+
+        return toSectionStudyStatusResponse(studyStatus);
+    }
+
     @Transactional
     public SectionStudyStatusResponse updateStudyStatus(
             Long userId,
