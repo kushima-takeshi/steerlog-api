@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -95,5 +96,91 @@ class SectionStudyStatusControllerTest {
 
         verify(sectionStudyStatusService).updateStudyStatus(
                 eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateSectionStudyStatusRequest.class));
+    }
+
+    @Test
+    void getStudyStatus_shouldReturn200() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+        Instant studiedAt = Instant.parse("2026-06-05T10:00:00Z");
+        Instant now = Instant.parse("2026-06-05T12:00:00Z");
+
+        SectionStudyStatusResponse response = new SectionStudyStatusResponse();
+        response.setSectionStudyStatusId(200L);
+        response.setResourceId(resourceId);
+        response.setResourceSectionId(sectionId);
+        response.setStudiedAt(studiedAt);
+        response.setCreatedAt(now);
+        response.setUpdatedAt(now);
+
+        when(sectionStudyStatusService.getStudyStatus(TEMP_USER_ID, resourceId, sectionId))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/resources/{resourceId}/sections/{sectionId}/study-status", resourceId, sectionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sectionStudyStatusId").value(200))
+                .andExpect(jsonPath("$.resourceId").value(10))
+                .andExpect(jsonPath("$.resourceSectionId").value(100))
+                .andExpect(jsonPath("$.studiedAt").value("2026-06-05T10:00:00Z"))
+                .andExpect(jsonPath("$.createdAt").value("2026-06-05T12:00:00Z"))
+                .andExpect(jsonPath("$.updatedAt").value("2026-06-05T12:00:00Z"));
+
+        verify(sectionStudyStatusService).getStudyStatus(TEMP_USER_ID, resourceId, sectionId);
+    }
+
+    @Test
+    void getStudyStatus_shouldReturn200WhenStudiedAtIsNull() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+        Instant now = Instant.parse("2026-06-05T12:00:00Z");
+
+        SectionStudyStatusResponse response = new SectionStudyStatusResponse();
+        response.setSectionStudyStatusId(200L);
+        response.setResourceId(resourceId);
+        response.setResourceSectionId(sectionId);
+        response.setStudiedAt(null);
+        response.setCreatedAt(now);
+        response.setUpdatedAt(now);
+
+        when(sectionStudyStatusService.getStudyStatus(TEMP_USER_ID, resourceId, sectionId))
+                .thenReturn(response);
+
+        mockMvc.perform(get("/resources/{resourceId}/sections/{sectionId}/study-status", resourceId, sectionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sectionStudyStatusId").value(200))
+                .andExpect(jsonPath("$.studiedAt").doesNotExist());
+
+        verify(sectionStudyStatusService).getStudyStatus(TEMP_USER_ID, resourceId, sectionId);
+    }
+
+    @Test
+    void getStudyStatus_shouldReturn404WhenResourceNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+
+        when(sectionStudyStatusService.getStudyStatus(TEMP_USER_ID, resourceId, sectionId))
+                .thenThrow(new ResourceNotFoundException("Resource not found"));
+
+        mockMvc.perform(get("/resources/{resourceId}/sections/{sectionId}/study-status", resourceId, sectionId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+
+        verify(sectionStudyStatusService).getStudyStatus(TEMP_USER_ID, resourceId, sectionId);
+    }
+
+    @Test
+    void getStudyStatus_shouldReturn404WhenSectionNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+
+        when(sectionStudyStatusService.getStudyStatus(TEMP_USER_ID, resourceId, sectionId))
+                .thenThrow(new ResourceNotFoundException("Resource not found"));
+
+        mockMvc.perform(get("/resources/{resourceId}/sections/{sectionId}/study-status", resourceId, sectionId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+
+        verify(sectionStudyStatusService).getStudyStatus(TEMP_USER_ID, resourceId, sectionId);
     }
 }
