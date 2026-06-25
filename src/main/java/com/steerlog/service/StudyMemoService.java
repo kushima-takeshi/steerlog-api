@@ -92,6 +92,19 @@ public class StudyMemoService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public StudyMemoResponse getMemo(Long userId, Long resourceId, Long studyMemoId) {
+        resourceRepository
+                .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        StudyMemo memo = studyMemoRepository
+                .findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(studyMemoId, userId, resourceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        return toStudyMemoResponse(memo);
+    }
+
     @Transactional
     public void deleteMemo(Long userId, Long resourceId, Long studyMemoId) {
         resourceRepository
