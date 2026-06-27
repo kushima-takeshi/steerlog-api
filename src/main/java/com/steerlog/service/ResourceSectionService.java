@@ -88,6 +88,23 @@ public class ResourceSectionService {
         return toResourceSectionResponse(savedSection);
     }
 
+    @Transactional
+    public void deleteSection(Long userId, Long resourceId, Long resourceSectionId) {
+        resourceRepository
+                .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        ResourceSection section = resourceSectionRepository
+                .findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                        resourceSectionId, userId, resourceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        Instant now = Instant.now();
+        section.setDeletedAt(now);
+        section.setUpdatedAt(now);
+        resourceSectionRepository.save(section);
+    }
+
     @Transactional(readOnly = true)
     public List<ResourceSectionResponse> getSections(Long userId, Long resourceId) {
         resourceRepository
