@@ -1,6 +1,7 @@
 package com.steerlog.service;
 
 import com.steerlog.dto.request.CreateResourceSectionRequest;
+import com.steerlog.dto.request.UpdateResourceSectionRequest;
 import com.steerlog.dto.response.ResourceSectionResponse;
 import com.steerlog.entity.Resource;
 import com.steerlog.entity.ResourceSection;
@@ -186,6 +187,193 @@ class ResourceSectionServiceTest {
         verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
         verify(resourceSectionRepository, never())
                 .findByUserIdAndResourceIdAndDeletedAtIsNullOrderBySectionOrderAsc(any(), any());
+    }
+
+    @Test
+    void updateSection_shouldUpdateSection() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+        Instant before = Instant.parse("2026-06-01T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId);
+        ResourceSection section = buildSection(resourceSectionId, userId, resourceId, "第1章", 1, before);
+
+        UpdateResourceSectionRequest request = new UpdateResourceSectionRequest();
+        request.setTitle("更新後タイトル");
+        request.setSectionOrder(2);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.of(section));
+        when(resourceSectionRepository.save(any(ResourceSection.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ResourceSectionResponse response =
+                resourceSectionService.updateSection(userId, resourceId, resourceSectionId, request);
+
+        ArgumentCaptor<ResourceSection> sectionCaptor = ArgumentCaptor.forClass(ResourceSection.class);
+        verify(resourceSectionRepository).save(sectionCaptor.capture());
+
+        ResourceSection savedSection = sectionCaptor.getValue();
+        assertThat(savedSection.getTitle()).isEqualTo("更新後タイトル");
+        assertThat(savedSection.getSectionOrder()).isEqualTo(2);
+        assertThat(savedSection.getUserId()).isEqualTo(userId);
+        assertThat(savedSection.getResourceId()).isEqualTo(resourceId);
+        assertThat(savedSection.getCreatedAt()).isEqualTo(before);
+        assertThat(savedSection.getUpdatedAt()).isNotNull();
+        assertThat(savedSection.getUpdatedAt()).isAfter(before);
+
+        assertThat(response.getResourceSectionId()).isEqualTo(resourceSectionId);
+        assertThat(response.getResourceId()).isEqualTo(resourceId);
+        assertThat(response.getTitle()).isEqualTo("更新後タイトル");
+        assertThat(response.getSectionOrder()).isEqualTo(2);
+
+        verify(sectionStudyStatusRepository, never()).save(any(SectionStudyStatus.class));
+    }
+
+    @Test
+    void updateSection_shouldUpdateOnlyProvidedFields() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+        Instant before = Instant.parse("2026-06-01T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId);
+        ResourceSection section = buildSection(resourceSectionId, userId, resourceId, "第1章", 1, before);
+
+        UpdateResourceSectionRequest request = new UpdateResourceSectionRequest();
+        request.setTitle("更新後タイトル");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.of(section));
+        when(resourceSectionRepository.save(any(ResourceSection.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ResourceSectionResponse response =
+                resourceSectionService.updateSection(userId, resourceId, resourceSectionId, request);
+
+        ArgumentCaptor<ResourceSection> sectionCaptor = ArgumentCaptor.forClass(ResourceSection.class);
+        verify(resourceSectionRepository).save(sectionCaptor.capture());
+
+        ResourceSection savedSection = sectionCaptor.getValue();
+        assertThat(savedSection.getTitle()).isEqualTo("更新後タイトル");
+        assertThat(savedSection.getSectionOrder()).isEqualTo(1);
+
+        assertThat(response.getTitle()).isEqualTo("更新後タイトル");
+        assertThat(response.getSectionOrder()).isEqualTo(1);
+    }
+
+    @Test
+    void updateSection_shouldThrowResourceNotFoundExceptionWhenResourceNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+
+        UpdateResourceSectionRequest request = new UpdateResourceSectionRequest();
+        request.setTitle("更新後タイトル");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceSectionService.updateSection(
+                        userId, resourceId, resourceSectionId, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(resourceSectionRepository, never())
+                .findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(any(), any(), any());
+        verify(resourceSectionRepository, never()).save(any(ResourceSection.class));
+    }
+
+    @Test
+    void updateSection_shouldThrowResourceNotFoundExceptionWhenSectionNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+
+        Resource resource = buildResource(resourceId, userId);
+
+        UpdateResourceSectionRequest request = new UpdateResourceSectionRequest();
+        request.setTitle("更新後タイトル");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceSectionService.updateSection(
+                        userId, resourceId, resourceSectionId, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceSectionRepository).findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId);
+        verify(resourceSectionRepository, never()).save(any(ResourceSection.class));
+    }
+
+    @Test
+    void updateSection_shouldThrowResourceNotFoundExceptionWhenSectionBelongsToOtherResource() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long otherResourceId = 20L;
+        Long resourceSectionId = 100L;
+
+        Resource resource = buildResource(resourceId, userId);
+
+        UpdateResourceSectionRequest request = new UpdateResourceSectionRequest();
+        request.setTitle("更新後タイトル");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceSectionService.updateSection(
+                        userId, resourceId, resourceSectionId, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceSectionRepository).findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId);
+        verify(resourceSectionRepository, never()).findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, otherResourceId);
+        verify(resourceSectionRepository, never()).save(any(ResourceSection.class));
+    }
+
+    @Test
+    void updateSection_shouldThrowResourceNotFoundExceptionWhenSectionIsDeleted() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+
+        Resource resource = buildResource(resourceId, userId);
+
+        UpdateResourceSectionRequest request = new UpdateResourceSectionRequest();
+        request.setTitle("更新後タイトル");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceSectionService.updateSection(
+                        userId, resourceId, resourceSectionId, request))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceSectionRepository).findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId);
+        verify(resourceSectionRepository, never()).save(any(ResourceSection.class));
     }
 
     private Resource buildResource(Long resourceId, Long userId) {
