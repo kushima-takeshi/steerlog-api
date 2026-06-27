@@ -2,6 +2,7 @@ package com.steerlog.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.steerlog.dto.request.CreateResourceSectionRequest;
+import com.steerlog.dto.request.UpdateResourceSectionRequest;
 import com.steerlog.dto.response.ResourceSectionResponse;
 import com.steerlog.exception.GlobalExceptionHandler;
 import com.steerlog.exception.ResourceNotFoundException;
@@ -23,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -132,5 +134,145 @@ class ResourceSectionControllerTest {
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
         verify(resourceSectionService).createSection(eq(TEMP_USER_ID), eq(resourceId), any(CreateResourceSectionRequest.class));
+    }
+
+    @Test
+    void updateSection_shouldReturn200() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+        Instant now = Instant.parse("2026-06-03T10:00:00Z");
+
+        UpdateResourceSectionRequest request = new UpdateResourceSectionRequest();
+        request.setTitle("更新後タイトル");
+        request.setSectionOrder(2);
+
+        ResourceSectionResponse response = new ResourceSectionResponse();
+        response.setResourceSectionId(sectionId);
+        response.setResourceId(resourceId);
+        response.setTitle("更新後タイトル");
+        response.setSectionOrder(2);
+        response.setCreatedAt(now);
+        response.setUpdatedAt(now);
+
+        when(resourceSectionService.updateSection(
+                        eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resourceSectionId").value(100))
+                .andExpect(jsonPath("$.title").value("更新後タイトル"))
+                .andExpect(jsonPath("$.sectionOrder").value(2));
+
+        verify(resourceSectionService).updateSection(
+                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
+    }
+
+    @Test
+    void updateSection_shouldReturn404WhenResourceNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+
+        UpdateResourceSectionRequest request = new UpdateResourceSectionRequest();
+        request.setTitle("更新後タイトル");
+
+        when(resourceSectionService.updateSection(
+                        eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Resource not found"));
+
+        mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+
+        verify(resourceSectionService).updateSection(
+                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
+    }
+
+    @Test
+    void updateSection_shouldReturn404WhenSectionNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+
+        UpdateResourceSectionRequest request = new UpdateResourceSectionRequest();
+        request.setTitle("更新後タイトル");
+
+        when(resourceSectionService.updateSection(
+                        eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Resource not found"));
+
+        mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+
+        verify(resourceSectionService).updateSection(
+                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
+    }
+
+    @Test
+    void updateSection_shouldReturn200WhenOnlySectionOrderProvided() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+        Instant now = Instant.parse("2026-06-03T10:00:00Z");
+
+        ResourceSectionResponse response = new ResourceSectionResponse();
+        response.setResourceSectionId(sectionId);
+        response.setResourceId(resourceId);
+        response.setTitle("第1章");
+        response.setSectionOrder(2);
+        response.setCreatedAt(now);
+        response.setUpdatedAt(now);
+
+        when(resourceSectionService.updateSection(
+                        eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sectionOrder\":2}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sectionOrder").value(2));
+
+        verify(resourceSectionService).updateSection(
+                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
+    }
+
+    @Test
+    void updateSection_shouldReturn400WhenTitleIsBlank() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+
+        mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateSection_shouldReturn400WhenTitleIsWhitespaceOnly() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+
+        mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\" \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateSection_shouldReturn400WhenSectionOrderIsInvalid() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+
+        mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sectionOrder\":0}"))
+                .andExpect(status().isBadRequest());
     }
 }

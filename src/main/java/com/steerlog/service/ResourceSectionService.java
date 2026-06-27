@@ -1,6 +1,7 @@
 package com.steerlog.service;
 
 import com.steerlog.dto.request.CreateResourceSectionRequest;
+import com.steerlog.dto.request.UpdateResourceSectionRequest;
 import com.steerlog.dto.response.ResourceSectionResponse;
 import com.steerlog.entity.ResourceSection;
 import com.steerlog.entity.SectionStudyStatus;
@@ -58,6 +59,31 @@ public class ResourceSectionService {
         studyStatus.setUpdatedAt(now);
 
         sectionStudyStatusRepository.save(studyStatus);
+
+        return toResourceSectionResponse(savedSection);
+    }
+
+    @Transactional
+    public ResourceSectionResponse updateSection(
+            Long userId, Long resourceId, Long resourceSectionId, UpdateResourceSectionRequest request) {
+        resourceRepository
+                .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        ResourceSection section = resourceSectionRepository
+                .findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                        resourceSectionId, userId, resourceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        if (request.getTitle() != null) {
+            section.setTitle(request.getTitle());
+        }
+        if (request.getSectionOrder() != null) {
+            section.setSectionOrder(request.getSectionOrder());
+        }
+
+        section.setUpdatedAt(Instant.now());
+        ResourceSection savedSection = resourceSectionRepository.save(section);
 
         return toResourceSectionResponse(savedSection);
     }
