@@ -7,6 +7,7 @@ import com.steerlog.service.ResourceSectionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -46,6 +47,14 @@ public class ResourceSectionController {
         ResourceSectionResponse response =
                 resourceSectionService.updateSection(TEMP_USER_ID, resourceId, sectionId, request);
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{sectionId}")
+    public ResponseEntity<Void> deleteSection(
+            @PathVariable Long resourceId,
+            @PathVariable Long sectionId) {
+        resourceSectionService.deleteSection(TEMP_USER_ID, resourceId, sectionId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping

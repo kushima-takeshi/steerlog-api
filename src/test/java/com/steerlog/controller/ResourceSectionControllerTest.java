@@ -21,8 +21,11 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -274,5 +277,49 @@ class ResourceSectionControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"sectionOrder\":0}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteSection_shouldReturn204() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+
+        doNothing().when(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+
+        mockMvc.perform(delete("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId))
+                .andExpect(status().isNoContent());
+
+        verify(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+    }
+
+    @Test
+    void deleteSection_shouldReturn404WhenResourceNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+
+        doThrow(new ResourceNotFoundException("Resource not found"))
+                .when(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+
+        mockMvc.perform(delete("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+
+        verify(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+    }
+
+    @Test
+    void deleteSection_shouldReturn404WhenSectionNotFound() throws Exception {
+        Long resourceId = 10L;
+        Long sectionId = 100L;
+
+        doThrow(new ResourceNotFoundException("Resource not found"))
+                .when(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+
+        mockMvc.perform(delete("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+
+        verify(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
     }
 }

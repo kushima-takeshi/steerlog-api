@@ -376,6 +376,127 @@ class ResourceSectionServiceTest {
         verify(resourceSectionRepository, never()).save(any(ResourceSection.class));
     }
 
+    @Test
+    void deleteSection_shouldSoftDeleteSection() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+        Instant before = Instant.parse("2026-06-01T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId);
+        ResourceSection section = buildSection(resourceSectionId, userId, resourceId, "第1章", 1, before);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.of(section));
+        when(resourceSectionRepository.save(any(ResourceSection.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        resourceSectionService.deleteSection(userId, resourceId, resourceSectionId);
+
+        ArgumentCaptor<ResourceSection> sectionCaptor = ArgumentCaptor.forClass(ResourceSection.class);
+        verify(resourceSectionRepository).save(sectionCaptor.capture());
+
+        ResourceSection savedSection = sectionCaptor.getValue();
+        assertThat(savedSection.getDeletedAt()).isNotNull();
+        assertThat(savedSection.getUpdatedAt()).isNotNull();
+        assertThat(savedSection.getUpdatedAt()).isAfter(before);
+        assertThat(savedSection.getTitle()).isEqualTo("第1章");
+        assertThat(savedSection.getSectionOrder()).isEqualTo(1);
+
+        verify(sectionStudyStatusRepository, never()).save(any(SectionStudyStatus.class));
+    }
+
+    @Test
+    void deleteSection_shouldThrowResourceNotFoundExceptionWhenResourceNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceSectionService.deleteSection(userId, resourceId, resourceSectionId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceRepository).findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId);
+        verify(resourceSectionRepository, never())
+                .findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(any(), any(), any());
+        verify(resourceSectionRepository, never()).save(any(ResourceSection.class));
+    }
+
+    @Test
+    void deleteSection_shouldThrowResourceNotFoundExceptionWhenSectionNotFound() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+
+        Resource resource = buildResource(resourceId, userId);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceSectionService.deleteSection(userId, resourceId, resourceSectionId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceSectionRepository).findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId);
+        verify(resourceSectionRepository, never()).save(any(ResourceSection.class));
+    }
+
+    @Test
+    void deleteSection_shouldThrowResourceNotFoundExceptionWhenSectionBelongsToOtherResource() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+
+        Resource resource = buildResource(resourceId, userId);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceSectionService.deleteSection(userId, resourceId, resourceSectionId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceSectionRepository).findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId);
+        verify(resourceSectionRepository, never()).save(any(ResourceSection.class));
+    }
+
+    @Test
+    void deleteSection_shouldThrowResourceNotFoundExceptionWhenSectionIsDeleted() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long resourceSectionId = 100L;
+
+        Resource resource = buildResource(resourceId, userId);
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(resourceSectionRepository.findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resourceSectionService.deleteSection(userId, resourceId, resourceSectionId))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessage("Resource not found");
+
+        verify(resourceSectionRepository).findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                resourceSectionId, userId, resourceId);
+        verify(resourceSectionRepository, never()).save(any(ResourceSection.class));
+    }
+
     private Resource buildResource(Long resourceId, Long userId) {
         Instant now = Instant.parse("2026-06-01T10:00:00Z");
         Resource resource = new Resource();
