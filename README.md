@@ -78,6 +78,9 @@ SteerLog は現在、バックエンド API を中心に実装しているアプ
 
 - `POST /resources/{resourceId}/sections`
 - `GET /resources/{resourceId}/sections`
+- `PATCH /resources/{resourceId}/sections/{sectionId}`
+- `DELETE /resources/{resourceId}/sections/{sectionId}`（論理削除）
+- `GET /resources/{resourceId}/sections/{sectionId}/study-status`
 - `PATCH /resources/{resourceId}/sections/{sectionId}/study-status`
 - Section 作成時に SectionStudyStatus 自動作成
 
@@ -85,6 +88,7 @@ SteerLog は現在、バックエンド API を中心に実装しているアプ
 
 - `POST /resources/{resourceId}/memos`
 - `GET /resources/{resourceId}/memos`
+- `GET /resources/{resourceId}/memos/{memoId}`
 - `PATCH /resources/{resourceId}/memos/{memoId}`
 - `DELETE /resources/{resourceId}/memos/{memoId}`
 
@@ -157,10 +161,6 @@ mvn test
 
 - 認証
 - `PATCH /resources/{resourceId}/progress`
-- `GET /resources/{resourceId}/memos/{memoId}`
-- `GET /resources/{resourceId}/sections/{sectionId}/study-status`
-- `PATCH /resources/{resourceId}/sections/{sectionId}`
-- `DELETE /resources/{resourceId}/sections/{sectionId}`
 - StudyMemo `tags` / `important`
 
 ## MVP 外（まだ作らない）
