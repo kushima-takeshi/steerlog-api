@@ -171,7 +171,7 @@ user_idで所有者チェックしている                   ✅
 
 # 5. Phase 3：ResourceSection + SectionStudyStatus
 
-**状態: ✅ 完了**（Section PATCH/DELETE、study-status GET は未実装）
+**状態: ✅ 完了**
 
 ## 5.1 目的
 
@@ -190,9 +190,9 @@ section_study_statuses
 POST /resources/{resourceId}/sections                              ✅
 GET /resources/{resourceId}/sections                             ✅
 PATCH /resources/{resourceId}/sections/{sectionId}/study-status  ✅
-PATCH /resources/{resourceId}/sections/{sectionId}               ⬜
-DELETE /resources/{resourceId}/sections/{sectionId}              ⬜
-GET /resources/{resourceId}/sections/{sectionId}/study-status      ⬜
+PATCH /resources/{resourceId}/sections/{sectionId}               ✅
+DELETE /resources/{resourceId}/sections/{sectionId}              ✅
+GET /resources/{resourceId}/sections/{sectionId}/study-status      ✅
 ```
 
 ## 5.4 実装タスク
@@ -269,7 +269,7 @@ studiedAtをnullに戻してもLevelHistoryは消えない  ✅（Level下げな
 
 # 7. Phase 5：StudyMemo
 
-**状態: ✅ 完了**（GET detail / tags / important は未実装）
+**状態: ✅ 完了**（tags / important は未実装）
 
 ## 7.1 目的
 
@@ -288,7 +288,7 @@ POST /resources/{resourceId}/memos                    ✅
 GET /resources/{resourceId}/memos                     ✅
 PATCH /resources/{resourceId}/memos/{memoId}          ✅
 DELETE /resources/{resourceId}/memos/{memoId}         ✅
-GET /resources/{resourceId}/memos/{memoId}            ⬜
+GET /resources/{resourceId}/memos/{memoId}            ✅
 ```
 
 ## 7.4 実装タスク
@@ -572,10 +572,6 @@ README.md の「未実装 / Next（MVP 内）」と整合：
 ```text
 認証
 PATCH /resources/{resourceId}/progress
-GET /resources/{resourceId}/memos/{memoId}
-GET /resources/{resourceId}/sections/{sectionId}/study-status
-PATCH /resources/{resourceId}/sections/{sectionId}
-DELETE /resources/{resourceId}/sections/{sectionId}
 StudyMemo tags / important
 ```
 

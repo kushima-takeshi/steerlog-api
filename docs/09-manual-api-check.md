@@ -694,10 +694,6 @@ DB を直接操作して `progresses` 行を削除した場合の確認用。
 
 ```text
 PATCH  /resources/{resourceId}/progress
-PATCH  /resources/{resourceId}/sections/{sectionId}
-DELETE /resources/{resourceId}/sections/{sectionId}
-GET    /resources/{resourceId}/sections/{sectionId}/study-status
-GET    /resources/{resourceId}/memos/{memoId}
 ```
 
 ※ `GET /resources/{resourceId}/details`（Resource 統合詳細）は Step 15 参照。  
