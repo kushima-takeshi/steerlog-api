@@ -20,11 +20,11 @@ MVPでは、Resource登録からLv.1〜Lv.3の学習証跡作成までをAPIで�
 | Progress | POST `.../progress/complete-initial-study` | ✅ 実装済み |
 | Progress | PATCH `/resources/{resourceId}/progress` | ⬜ 未実装 |
 | ResourceSection | POST/GET `/resources/{resourceId}/sections` | ✅ 実装済み |
-| ResourceSection | PATCH/DELETE `.../sections/{sectionId}` | ⬜ 未実装 |
+| ResourceSection | PATCH/DELETE `.../sections/{sectionId}` | ✅ 実装済み |
 | SectionStudyStatus | PATCH `.../sections/{sectionId}/study-status` | ✅ 実装済み |
-| SectionStudyStatus | GET `.../sections/{sectionId}/study-status` | ⬜ 未実装 |
+| SectionStudyStatus | GET `.../sections/{sectionId}/study-status` | ✅ 実装済み |
 | StudyMemo | POST/GET/PATCH/DELETE `/resources/{resourceId}/memos` | ✅ 実装済み |
-| StudyMemo | GET `.../memos/{memoId}` | ⬜ 未実装 |
+| StudyMemo | GET `.../memos/{memoId}` | ✅ 実装済み |
 | LevelHistory | GET `/resources/{resourceId}/level-histories` | ✅ 実装済み |
 | LearningSession | POST `.../learning-sessions`（start） | ✅ 実装済み |
 | LearningSession | POST `.../learning-sessions/{id}/discard` | ✅ 実装済み |
@@ -35,7 +35,7 @@ MVPでは、Resource登録からLv.1〜Lv.3の学習証跡作成までをAPIで�
 
 認証は未実装。Controller では `TEMP_USER_ID = 1L` 固定。
 
-Resource詳細（`GET /resources/{resourceId}`）は現状 **Resource + Progress のみ**。Sections / Memos / LevelHistories の統合表示は Phase 8 予定。
+Resource詳細（`GET /resources/{resourceId}`）は **Resource + Progress のみ**。統合詳細は `GET /resources/{resourceId}/details`（Phase 8 実装済み）を使用する。
 
 ---
 
@@ -398,7 +398,7 @@ Section の一覧（`sectionOrder` 昇順）。StudyStatus は含めない。
 
 ## 3.3 Section更新
 
-**状態: ⬜ 未実装**
+**状態: ✅ 実装済み**
 
 ```http
 PATCH /resources/{resourceId}/sections/{sectionId}
@@ -423,7 +423,7 @@ Section階層化や表示順の再設計が必要になった場合に再検討�
 
 ## 3.4 Section削除
 
-**状態: ⬜ 未実装**
+**状態: ✅ 実装済み**
 
 ```http
 DELETE /resources/{resourceId}/sections/{sectionId}
@@ -566,7 +566,7 @@ reasonCode = INITIAL_STUDY_COMPLETED
 
 ## 5.1 Section学習状態取得
 
-**状態: ⬜ 未実装**
+**状態: ✅ 実装済み**
 
 ```http
 GET /resources/{resourceId}/sections/{sectionId}/study-status
@@ -678,7 +678,7 @@ GET /resources/{resourceId}/memos
 
 ## 6.3 メモ詳細
 
-**状態: ⬜ 未実装**
+**状態: ✅ 実装済み**
 
 ```http
 GET /resources/{resourceId}/memos/{memoId}
@@ -1100,11 +1100,9 @@ LevelHistory参照
 
 ```text
 PATCH /resources/{resourceId}/progress
-PATCH/DELETE /resources/{resourceId}/sections/{sectionId}
-GET /resources/{resourceId}/sections/{sectionId}/study-status
-GET /resources/{resourceId}/memos/{memoId}
-Resource詳細の統合表示（Sections / Memos / LatestRecords 等）
+StudyMemo tags / important
 AI連携（aiPrompt / resultDraft の動的生成）
+認証
 ```
 
 MVP API全体の重要な原則：
