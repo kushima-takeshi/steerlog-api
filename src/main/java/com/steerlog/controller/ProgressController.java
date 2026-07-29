@@ -1,11 +1,15 @@
 package com.steerlog.controller;
 
+import com.steerlog.dto.request.UpdateProgressRequest;
 import com.steerlog.dto.response.ProgressResponse;
 import com.steerlog.service.ProgressService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,6 +28,14 @@ public class ProgressController {
     @GetMapping
     public ResponseEntity<ProgressResponse> getProgress(@PathVariable Long resourceId) {
         ProgressResponse response = progressService.getProgress(TEMP_USER_ID, resourceId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping
+    public ResponseEntity<ProgressResponse> updateProgress(
+            @PathVariable Long resourceId,
+            @Valid @RequestBody UpdateProgressRequest request) {
+        ProgressResponse response = progressService.updateProgress(TEMP_USER_ID, resourceId, request);
         return ResponseEntity.ok(response);
     }
 

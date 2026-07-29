@@ -66,4 +66,11 @@ public class GlobalExceptionHandler {
         ErrorResponse body = new ErrorResponse("LEARNING_SESSION_RECORD_CANNOT_BE_SAVED", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
+
+    @ExceptionHandler(InvalidProgressStatusTransitionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidProgressStatusTransition(
+            InvalidProgressStatusTransitionException ex) {
+        ErrorResponse body = new ErrorResponse("INVALID_PROGRESS_STATUS_TRANSITION", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
 }
