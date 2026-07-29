@@ -1,15 +1,18 @@
 package com.steerlog.service;
 
+import com.steerlog.dto.request.UpdateProgressRequest;
 import com.steerlog.dto.response.ProgressResponse;
 import com.steerlog.entity.LevelHistory;
 import com.steerlog.entity.LevelHistoryReasonCode;
 import com.steerlog.entity.LevelHistorySourceType;
 import com.steerlog.entity.Progress;
 import com.steerlog.entity.ProgressStatus;
+import com.steerlog.exception.InvalidProgressStatusTransitionException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.repository.LevelHistoryRepository;
 import com.steerlog.repository.ProgressRepository;
 import com.steerlog.repository.ResourceRepository;
+import com.steerlog.repository.ResourceSectionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,14 +24,17 @@ public class ProgressService {
     private final ResourceRepository resourceRepository;
     private final ProgressRepository progressRepository;
     private final LevelHistoryRepository levelHistoryRepository;
+    private final ResourceSectionRepository resourceSectionRepository;
 
     public ProgressService(
             ResourceRepository resourceRepository,
             ProgressRepository progressRepository,
-            LevelHistoryRepository levelHistoryRepository) {
+            LevelHistoryRepository levelHistoryRepository,
+            ResourceSectionRepository resourceSectionRepository) {
         this.resourceRepository = resourceRepository;
         this.progressRepository = progressRepository;
         this.levelHistoryRepository = levelHistoryRepository;
+        this.resourceSectionRepository = resourceSectionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -80,6 +86,91 @@ public class ProgressService {
         }
 
         return toProgressResponse(savedProgress);
+    }
+
+    @Transactional
+    public ProgressResponse updateProgress(Long userId, Long resourceId, UpdateProgressRequest request) {
+        resourceRepository
+                .findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+
+        Progress progress = progressRepository
+                .findByUserIdAndResourceId(userId, resourceId)
+                .orElseThrow(() -> new RuntimeException("Progress not found"));
+
+        if (request.getCurrentSectionId() != null) {
+            resourceSectionRepository
+                    .findByResourceSectionIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                            request.getCurrentSectionId(), userId, resourceId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Resource not found"));
+        }
+
+        Instant now = Instant.now();
+
+        if (request.getStatus() != null) {
+            applyStatusTransition(progress, request.getStatus(), request.getArchiveReason(), now);
+        }
+
+        if (request.getCurrentSectionId() != null) {
+            progress.setCurrentSectionId(request.getCurrentSectionId());
+        }
+
+        if (request.getArchiveReason() != null) {
+            progress.setArchiveReason(request.getArchiveReason());
+        }
+
+        progress.setUpdatedAt(now);
+        Progress savedProgress = progressRepository.save(progress);
+
+        return toProgressResponse(savedProgress);
+    }
+
+    private void applyStatusTransition(
+            Progress progress, ProgressStatus targetStatus, String archiveReason, Instant now) {
+        ProgressStatus currentStatus = progress.getStatus();
+
+        if (currentStatus == targetStatus) {
+            return;
+        }
+
+        if (targetStatus == ProgressStatus.ARCHIVED) {
+            progress.setStatus(ProgressStatus.ARCHIVED);
+            progress.setArchivedAt(now);
+            if (archiveReason != null) {
+                progress.setArchiveReason(archiveReason);
+            }
+            return;
+        }
+
+        if (currentStatus == ProgressStatus.NOT_STARTED && targetStatus == ProgressStatus.IN_PROGRESS) {
+            progress.setStatus(ProgressStatus.IN_PROGRESS);
+            if (progress.getStartedAt() == null) {
+                progress.setStartedAt(now);
+            }
+            progress.setLastStudiedAt(now);
+            return;
+        }
+
+        if (currentStatus == ProgressStatus.IN_PROGRESS && targetStatus == ProgressStatus.PAUSED) {
+            progress.setStatus(ProgressStatus.PAUSED);
+            return;
+        }
+
+        if (currentStatus == ProgressStatus.PAUSED && targetStatus == ProgressStatus.IN_PROGRESS) {
+            progress.setStatus(ProgressStatus.IN_PROGRESS);
+            progress.setLastStudiedAt(now);
+            return;
+        }
+
+        if (currentStatus == ProgressStatus.ARCHIVED
+                && (targetStatus == ProgressStatus.IN_PROGRESS
+                        || targetStatus == ProgressStatus.PAUSED
+                        || targetStatus == ProgressStatus.NOT_STARTED)) {
+            progress.setStatus(targetStatus);
+            return;
+        }
+
+        throw new InvalidProgressStatusTransitionException("Invalid progress status transition");
     }
 
     private ProgressResponse toProgressResponse(Progress progress) {

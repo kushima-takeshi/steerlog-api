@@ -1,22 +1,29 @@
 package com.steerlog.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.steerlog.dto.request.UpdateProgressRequest;
 import com.steerlog.dto.response.ProgressResponse;
 import com.steerlog.entity.ProgressStatus;
 import com.steerlog.exception.GlobalExceptionHandler;
+import com.steerlog.exception.InvalidProgressStatusTransitionException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.service.ProgressService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -29,6 +36,9 @@ class ProgressControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @MockitoBean
     private ProgressService progressService;
@@ -115,5 +125,76 @@ class ProgressControllerTest {
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
         verify(progressService).completeInitialStudy(TEMP_USER_ID, resourceId);
+    }
+
+    @Test
+    void updateProgress_shouldReturn200() throws Exception {
+        Long resourceId = 10L;
+        Instant now = Instant.parse("2026-06-03T10:00:00Z");
+
+        UpdateProgressRequest request = new UpdateProgressRequest();
+        request.setStatus(ProgressStatus.IN_PROGRESS);
+
+        ProgressResponse response = new ProgressResponse();
+        response.setProgressId(20L);
+        response.setStatus(ProgressStatus.IN_PROGRESS);
+        response.setCurrentLevel(0);
+        response.setStartedAt(now);
+        response.setLastStudiedAt(now);
+        response.setCreatedAt(now);
+        response.setUpdatedAt(now);
+
+        when(progressService.updateProgress(eq(TEMP_USER_ID), eq(resourceId), any(UpdateProgressRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(patch("/resources/{resourceId}/progress", resourceId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.progressId").value(20))
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.startedAt").value("2026-06-03T10:00:00Z"));
+
+        verify(progressService).updateProgress(eq(TEMP_USER_ID), eq(resourceId), any(UpdateProgressRequest.class));
+    }
+
+    @Test
+    void updateProgress_shouldReturn404WhenResourceNotFound() throws Exception {
+        Long resourceId = 10L;
+
+        UpdateProgressRequest request = new UpdateProgressRequest();
+        request.setStatus(ProgressStatus.IN_PROGRESS);
+
+        when(progressService.updateProgress(eq(TEMP_USER_ID), eq(resourceId), any(UpdateProgressRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Resource not found"));
+
+        mockMvc.perform(patch("/resources/{resourceId}/progress", resourceId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.message").value("Resource not found"));
+
+        verify(progressService).updateProgress(eq(TEMP_USER_ID), eq(resourceId), any(UpdateProgressRequest.class));
+    }
+
+    @Test
+    void updateProgress_shouldReturn400WhenStatusTransitionInvalid() throws Exception {
+        Long resourceId = 10L;
+
+        UpdateProgressRequest request = new UpdateProgressRequest();
+        request.setStatus(ProgressStatus.NOT_STARTED);
+
+        when(progressService.updateProgress(eq(TEMP_USER_ID), eq(resourceId), any(UpdateProgressRequest.class)))
+                .thenThrow(new InvalidProgressStatusTransitionException("Invalid progress status transition"));
+
+        mockMvc.perform(patch("/resources/{resourceId}/progress", resourceId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PROGRESS_STATUS_TRANSITION"))
+                .andExpect(jsonPath("$.message").value("Invalid progress status transition"));
+
+        verify(progressService).updateProgress(eq(TEMP_USER_ID), eq(resourceId), any(UpdateProgressRequest.class));
     }
 }
