@@ -68,6 +68,7 @@ SteerLog は現在、バックエンド API を中心に実装しているアプ
 ### Progress / LevelHistory
 
 - `GET /resources/{resourceId}/progress`
+- `PATCH /resources/{resourceId}/progress`
 - `POST /resources/{resourceId}/progress/complete-initial-study`
 - `GET /resources/{resourceId}/level-histories`
 - Lv.1 明示到達 / 全 Section 学習済みによる Lv.1 自動到達
@@ -160,7 +161,6 @@ mvn test
 ## 未実装 / Next（MVP 内）
 
 - 認証
-- `PATCH /resources/{resourceId}/progress`
 - StudyMemo `tags` / `important`
 
 ## MVP 外（まだ作らない）

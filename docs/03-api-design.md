@@ -18,7 +18,7 @@ MVPでは、Resource登録からLv.1〜Lv.3の学習証跡作成までをAPIで�
 | Resource | POST/GET/GET詳細/PATCH/DELETE `/resources` | ✅ 実装済み |
 | Progress | GET `/resources/{resourceId}/progress` | ✅ 実装済み |
 | Progress | POST `.../progress/complete-initial-study` | ✅ 実装済み |
-| Progress | PATCH `/resources/{resourceId}/progress` | ⬜ 未実装 |
+| Progress | PATCH `/resources/{resourceId}/progress` | ✅ 実装済み |
 | ResourceSection | POST/GET `/resources/{resourceId}/sections` | ✅ 実装済み |
 | ResourceSection | PATCH/DELETE `.../sections/{sectionId}` | ✅ 実装済み |
 | SectionStudyStatus | PATCH `.../sections/{sectionId}/study-status` | ✅ 実装済み |
@@ -456,7 +456,7 @@ GET /resources/{resourceId}/progress
 
 ## 4.2 Progress更新
 
-**状態: ⬜ 未実装**
+**状態: ✅ 実装済み**
 
 ```http
 PATCH /resources/{resourceId}/progress
@@ -1099,7 +1099,6 @@ LevelHistory参照
 未実装の主な項目（MVP 内）：
 
 ```text
-PATCH /resources/{resourceId}/progress
 StudyMemo tags / important
 AI連携（aiPrompt / resultDraft の動的生成）
 認証

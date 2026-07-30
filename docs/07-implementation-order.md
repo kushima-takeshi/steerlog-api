@@ -117,7 +117,7 @@ MVP初期では、認証を作り込まない。
 
 # 4. Phase 2：Resource + Progress
 
-**状態: ✅ 完了**（PATCH progress は未実装）
+**状態: ✅ 完了**
 
 ## 4.1 目的
 
@@ -139,7 +139,7 @@ GET /resources                           ✅
 PATCH /resources/{resourceId}            ✅
 DELETE /resources/{resourceId}           ✅
 GET /resources/{resourceId}/progress     ✅
-PATCH /resources/{resourceId}/progress   ⬜
+PATCH /resources/{resourceId}/progress   ✅
 ```
 
 ## 4.4 実装タスク
@@ -571,7 +571,6 @@ README.md の「未実装 / Next（MVP 内）」と整合：
 
 ```text
 認証
-PATCH /resources/{resourceId}/progress
 StudyMemo tags / important
 ```
 
