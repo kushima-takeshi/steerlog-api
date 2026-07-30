@@ -690,14 +690,16 @@ DB を直接操作して `progresses` 行を削除した場合の確認用。
 
 ## 未実装 API（参考）
 
-以下は現時点では未実装。
+以下は現時点では未実装（MVP 内の残り）。
 
 ```text
-PATCH  /resources/{resourceId}/progress
+認証
+StudyMemo tags / important
 ```
 
 ※ `GET /resources/{resourceId}/details`（Resource 統合詳細）は Step 15 参照。  
-※ LearningSession 系 API は Step 16〜25 参照。
+※ LearningSession 系 API は Step 16〜25 参照。  
+※ `PATCH /resources/{resourceId}/progress` は実装済み。
 
 ---
 
