@@ -141,6 +141,9 @@ docs/
   06-implementation-rules.md
   07-implementation-order.md
   08-ai-development-workflow.md
+  09-manual-api-check.md
+  10-resource-detail-design.md
+  11-technical-decisions.md
 ```
 
 日付別メモは以下に置く。
@@ -162,7 +165,10 @@ archiveは判断履歴であり、AIコード生成の標準入力にはしな�
 01-mvp-scope.md
 06-implementation-rules.md
 07-implementation-order.md
+11-technical-decisions.md
 ```
+
+技術的な決定・既知の制約・改善点は `11-technical-decisions.md` を正本とする。実装前に目を通す。
 
 DB実装時：
 

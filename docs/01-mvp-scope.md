@@ -443,10 +443,12 @@ AIがSection案を生成
 MVPでは以下のような軽量保持にとどめる。
 
 ```text
-study_memos.tags TEXT[]
-learning_session_records.concept_tags TEXT[]
+study_memos.tags TEXT（カンマ区切り。API では List<String>）
+learning_session_records.concept_tags TEXT（同上）
 learning_session_records.weak_point_tags TEXT[]
 ```
+
+保存方針の詳細は `docs/11-technical-decisions.md` を参照。
 
 ---
 

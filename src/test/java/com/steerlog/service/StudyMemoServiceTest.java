@@ -103,6 +103,39 @@ class StudyMemoServiceTest {
         assertThat(response.getResourceId()).isEqualTo(resourceId);
         assertThat(response.getMemoType()).isEqualTo(StudyMemoType.LEARNED);
         assertThat(response.getContent()).isEqualTo("HTTPの基本を理解した");
+        assertThat(response.getTags()).isEmpty();
+    }
+
+    @Test
+    void createMemo_shouldSaveAndReturnTags() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+
+        Resource resource = buildResource(resourceId, userId);
+        Progress progress = buildProgress(300L, userId, resourceId);
+
+        CreateStudyMemoRequest request = new CreateStudyMemoRequest();
+        request.setContent("HTTPの基本を理解した");
+        request.setTags(List.of("HTTP", "REST"));
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(progressRepository.findByUserIdAndResourceId(userId, resourceId))
+                .thenReturn(Optional.of(progress));
+        when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> {
+            StudyMemo memo = invocation.getArgument(0);
+            memo.setStudyMemoId(500L);
+            return memo;
+        });
+        when(progressRepository.save(any(Progress.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudyMemoResponse response = studyMemoService.createMemo(userId, resourceId, request);
+
+        ArgumentCaptor<StudyMemo> memoCaptor = ArgumentCaptor.forClass(StudyMemo.class);
+        verify(studyMemoRepository).save(memoCaptor.capture());
+
+        assertThat(memoCaptor.getValue().getTags()).isEqualTo("HTTP,REST");
+        assertThat(response.getTags()).containsExactly("HTTP", "REST");
     }
 
     @Test
@@ -467,6 +500,97 @@ class StudyMemoServiceTest {
 
         assertThat(memoCaptor.getValue().getMemoType()).isEqualTo(StudyMemoType.QUESTION);
         assertThat(memoCaptor.getValue().getContent()).isEqualTo("メモ内容");
+    }
+
+    @Test
+    void updateMemo_shouldReplaceTags() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long studyMemoId = 500L;
+        Instant before = Instant.parse("2026-06-03T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId);
+        StudyMemo memo = buildMemo(studyMemoId, userId, resourceId, null, StudyMemoType.GENERAL, "メモ内容", before);
+        memo.setTags("HTTP,REST");
+
+        UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
+        request.setTags(List.of("JSON", "API"));
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(studyMemoRepository.findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                studyMemoId, userId, resourceId))
+                .thenReturn(Optional.of(memo));
+        when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudyMemoResponse response = studyMemoService.updateMemo(userId, resourceId, studyMemoId, request);
+
+        ArgumentCaptor<StudyMemo> memoCaptor = ArgumentCaptor.forClass(StudyMemo.class);
+        verify(studyMemoRepository).save(memoCaptor.capture());
+
+        assertThat(memoCaptor.getValue().getTags()).isEqualTo("JSON,API");
+        assertThat(response.getTags()).containsExactly("JSON", "API");
+    }
+
+    @Test
+    void updateMemo_shouldClearTagsWhenEmptyList() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long studyMemoId = 500L;
+        Instant before = Instant.parse("2026-06-03T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId);
+        StudyMemo memo = buildMemo(studyMemoId, userId, resourceId, null, StudyMemoType.GENERAL, "メモ内容", before);
+        memo.setTags("HTTP,REST");
+
+        UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
+        request.setTags(Collections.emptyList());
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(studyMemoRepository.findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                studyMemoId, userId, resourceId))
+                .thenReturn(Optional.of(memo));
+        when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudyMemoResponse response = studyMemoService.updateMemo(userId, resourceId, studyMemoId, request);
+
+        ArgumentCaptor<StudyMemo> memoCaptor = ArgumentCaptor.forClass(StudyMemo.class);
+        verify(studyMemoRepository).save(memoCaptor.capture());
+
+        assertThat(memoCaptor.getValue().getTags()).isNull();
+        assertThat(response.getTags()).isEmpty();
+    }
+
+    @Test
+    void updateMemo_shouldKeepExistingTagsWhenTagsNotProvided() {
+        Long userId = 1L;
+        Long resourceId = 10L;
+        Long studyMemoId = 500L;
+        Instant before = Instant.parse("2026-06-03T10:00:00Z");
+
+        Resource resource = buildResource(resourceId, userId);
+        StudyMemo memo = buildMemo(studyMemoId, userId, resourceId, null, StudyMemoType.GENERAL, "旧メモ", before);
+        memo.setTags("HTTP,REST");
+
+        UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
+        request.setContent("新メモ");
+
+        when(resourceRepository.findByResourceIdAndUserIdAndDeletedAtIsNull(resourceId, userId))
+                .thenReturn(Optional.of(resource));
+        when(studyMemoRepository.findByStudyMemoIdAndUserIdAndResourceIdAndDeletedAtIsNull(
+                studyMemoId, userId, resourceId))
+                .thenReturn(Optional.of(memo));
+        when(studyMemoRepository.save(any(StudyMemo.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudyMemoResponse response = studyMemoService.updateMemo(userId, resourceId, studyMemoId, request);
+
+        ArgumentCaptor<StudyMemo> memoCaptor = ArgumentCaptor.forClass(StudyMemo.class);
+        verify(studyMemoRepository).save(memoCaptor.capture());
+
+        assertThat(memoCaptor.getValue().getTags()).isEqualTo("HTTP,REST");
+        assertThat(memoCaptor.getValue().getContent()).isEqualTo("新メモ");
+        assertThat(response.getTags()).containsExactly("HTTP", "REST");
     }
 
     @Test

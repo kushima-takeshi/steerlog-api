@@ -269,7 +269,7 @@ studiedAtをnullに戻してもLevelHistoryは消えない  ✅（Level下げな
 
 # 7. Phase 5：StudyMemo
 
-**状態: ✅ 完了**（tags / important は未実装）
+**状態: ✅ 完了**（`important` は MVP 外）
 
 ## 7.1 目的
 
@@ -310,7 +310,8 @@ Service tests / Controller tests        ✅
 メモ更新・論理削除できる                      ✅
 Progress.lastStudiedAtが更新される（作成時）  ✅
 StudyMemo作成でLevelは上がらない              ✅
-tags / important flag は未実装                ⬜
+tags（List / TEXT カンマ区切り）              ✅
+important flag は持たせない（MVP 外）         —
 ```
 
 ---
@@ -571,7 +572,6 @@ README.md の「未実装 / Next（MVP 内）」と整合：
 
 ```text
 認証
-StudyMemo tags / important
 ```
 
 ## 13.3 MVP 外（まだ作らない）
@@ -582,4 +582,6 @@ Lv.4 / Lv.5
 Galaxy / MCP / 学習時間管理
 resultDraft / responseText の DB 保存
 discardedAt / recordSavedAt 専用カラム
+StudyMemo important
+タグ正規化テーブル本格実装
 ```

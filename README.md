@@ -42,7 +42,7 @@ SteerLog は現在、バックエンド API を中心に実装しているアプ
 - Spring Boot 3.4.5
 - Maven
 - PostgreSQL
-- Flyway（V1〜V9）
+- Flyway（V1〜V10）
 - Spring Data JPA
 - JUnit 5
 - Mockito
@@ -92,6 +92,7 @@ SteerLog は現在、バックエンド API を中心に実装しているアプ
 - `GET /resources/{resourceId}/memos/{memoId}`
 - `PATCH /resources/{resourceId}/memos/{memoId}`
 - `DELETE /resources/{resourceId}/memos/{memoId}`
+- `tags`（API: `List<String>` / DB: TEXT カンマ区切り）
 
 ### LearningSession / LearningSessionRecord
 
@@ -155,16 +156,18 @@ mvn test
 - [docs/08-ai-development-workflow.md](docs/08-ai-development-workflow.md) - AI 開発フロー
 - [docs/09-manual-api-check.md](docs/09-manual-api-check.md) - 手動 API 確認
 - [docs/10-resource-detail-design.md](docs/10-resource-detail-design.md) - Resource Detail API 設計
+- [docs/11-technical-decisions.md](docs/11-technical-decisions.md) - 技術決定・既知の制約・改善点
 
 ---
 
 ## 未実装 / Next（MVP 内）
 
 - 認証
-- StudyMemo `tags` / `important`
 
 ## MVP 外（まだ作らない）
 
+- StudyMemo `important` フラグ
 - AI 連携（動的 `aiPrompt` / `resultDraft`）
 - Lv.4 / Lv.5
 - Galaxy / MCP / 学習時間管理
+- タグ正規化テーブル本格実装

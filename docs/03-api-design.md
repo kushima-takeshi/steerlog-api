@@ -637,12 +637,15 @@ POST /resources/{resourceId}/memos
 {
   "resourceSectionId": 10,
   "memoType": "QUESTION",
-  "content": "PUTとPATCHの使い分けがまだ曖昧"
+  "content": "PUTとPATCHの使い分けがまだ曖昧",
+  "tags": ["HTTP", "REST"]
 }
 ```
 
 `memoType` が null の場合は `GENERAL`。`resourceSectionId` は任意。  
-`tags` は ⬜ 未実装。
+`tags` は任意（API: `List<String>`、DB: TEXT カンマ区切り）。未指定 / null / 空配列はタグなし（DB `null`）。
+
+詳細な保存方針は `docs/11-technical-decisions.md` を参照。
 
 ### 処理
 
@@ -699,9 +702,10 @@ PATCH /resources/{resourceId}/memos/{memoId}
 ```text
 memoType（null なら更新しない）
 content（null なら更新しない、指定時 1〜500文字）
+tags（null なら更新しない、[] ならクリア、値ありなら置き換え）
 ```
 
-`resourceSectionId` / `tags` の更新は ⬜ 未実装。  
+`resourceSectionId` の更新は ⬜ 未実装。  
 `updatedAt` は常に更新。Progress / LevelHistory は更新しない。
 
 ---
@@ -1099,9 +1103,15 @@ LevelHistory参照
 未実装の主な項目（MVP 内）：
 
 ```text
-StudyMemo tags / important
-AI連携（aiPrompt / resultDraft の動的生成）
 認証
+```
+
+MVP 外（作らない）：
+
+```text
+StudyMemo important
+AI連携（aiPrompt / resultDraft の動的生成）
+タグ正規化テーブル本格実装
 ```
 
 MVP API全体の重要な原則：

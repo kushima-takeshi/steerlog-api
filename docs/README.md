@@ -27,6 +27,7 @@ docs/
   08-ai-development-workflow.md
   09-manual-api-check.md
   10-resource-detail-design.md
+  11-technical-decisions.md
 
 docs/archive/
   README.md
@@ -97,7 +98,7 @@ datetime方針
 ドメイン関係図（§2.5）
 制約
 Index
-Flyway作成順（V1〜V9）
+Flyway作成順（V1〜V10）
 ```
 
 Flyway migration、Entity、Repository作成時に読ませる。
@@ -247,6 +248,24 @@ Resource Detail API 実装・改修時に読ませる。
 
 ---
 
+## 11-technical-decisions.md
+
+MVP の技術的な決定・既知の制約・改善点をまとめる。
+
+主な内容：
+
+```text
+タグ保存形式（List / TEXT カンマ）
+認証未実装（TEMP_USER_ID）
+important を持たせない
+MVP 外の改善候補
+```
+
+仕様の詳細は 01〜10、作業は Issue、決定と改善点はこのファイル。  
+実装・レビュー時に「なぜこうなっているか」を確認するときに読ませる。
+
+---
+
 ## 08-ai-development-workflow.md
 
 AIコード生成ツールを使った開発運用を定義する。
@@ -276,6 +295,7 @@ docs/00-product-principles.md
 docs/01-mvp-scope.md
 docs/06-implementation-rules.md
 docs/07-implementation-order.md
+docs/11-technical-decisions.md
 ```
 
 ---

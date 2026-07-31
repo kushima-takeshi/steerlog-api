@@ -82,6 +82,7 @@ class ResourceDetailServiceTest {
         SectionStudyStatus studyStatus1 = buildStudyStatus(200L, userId, resourceId, 100L, now);
         SectionStudyStatus studyStatus2 = buildStudyStatus(201L, userId, resourceId, 101L, earlier);
         StudyMemo memo = buildMemo(300L, userId, resourceId, 100L, now);
+        memo.setTags("HTTP,REST");
         LevelHistory levelHistory = buildLevelHistory(userId, resourceId, 1, earlier);
         LearningSessionRecord record = buildRecord(400L, userId, resourceId, now);
 
@@ -118,6 +119,7 @@ class ResourceDetailServiceTest {
 
         assertThat(response.getMemos()).hasSize(1);
         assertThat(response.getMemos().get(0).getStudyMemoId()).isEqualTo(300L);
+        assertThat(response.getMemos().get(0).getTags()).containsExactly("HTTP", "REST");
 
         assertThat(response.getLevelHistories()).hasSize(1);
         assertThat(response.getLevelHistories().get(0).getLevel()).isEqualTo(1);
