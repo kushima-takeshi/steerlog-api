@@ -56,12 +56,14 @@ class StudyMemoControllerTest {
         CreateStudyMemoRequest request = new CreateStudyMemoRequest();
         request.setContent("HTTPの基本を理解した");
         request.setMemoType(StudyMemoType.LEARNED);
+        request.setTags(List.of("HTTP", "REST"));
 
         StudyMemoResponse response = new StudyMemoResponse();
         response.setStudyMemoId(500L);
         response.setResourceId(resourceId);
         response.setMemoType(StudyMemoType.LEARNED);
         response.setContent("HTTPの基本を理解した");
+        response.setTags(List.of("HTTP", "REST"));
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
 
@@ -75,7 +77,9 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$.studyMemoId").value(500))
                 .andExpect(jsonPath("$.resourceId").value(10))
                 .andExpect(jsonPath("$.memoType").value("LEARNED"))
-                .andExpect(jsonPath("$.content").value("HTTPの基本を理解した"));
+                .andExpect(jsonPath("$.content").value("HTTPの基本を理解した"))
+                .andExpect(jsonPath("$.tags[0]").value("HTTP"))
+                .andExpect(jsonPath("$.tags[1]").value("REST"));
 
         verify(studyMemoService).createMemo(eq(TEMP_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class));
     }
@@ -210,12 +214,14 @@ class StudyMemoControllerTest {
         UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
         request.setContent("更新後メモ");
         request.setMemoType(StudyMemoType.QUESTION);
+        request.setTags(List.of("JSON", "API"));
 
         StudyMemoResponse response = new StudyMemoResponse();
         response.setStudyMemoId(memoId);
         response.setResourceId(resourceId);
         response.setMemoType(StudyMemoType.QUESTION);
         response.setContent("更新後メモ");
+        response.setTags(List.of("JSON", "API"));
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
 
@@ -228,7 +234,9 @@ class StudyMemoControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.studyMemoId").value(500))
                 .andExpect(jsonPath("$.memoType").value("QUESTION"))
-                .andExpect(jsonPath("$.content").value("更新後メモ"));
+                .andExpect(jsonPath("$.content").value("更新後メモ"))
+                .andExpect(jsonPath("$.tags[0]").value("JSON"))
+                .andExpect(jsonPath("$.tags[1]").value("API"));
 
         verify(studyMemoService).updateMemo(eq(TEMP_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class));
     }

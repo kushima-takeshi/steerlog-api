@@ -79,6 +79,7 @@ class ResourceDetailControllerTest {
         memo.setResourceSectionId(100L);
         memo.setMemoType(StudyMemoType.QUESTION);
         memo.setContent("PUTとPATCHの違いがまだ曖昧");
+        memo.setTags(List.of("HTTP", "REST"));
         memo.setCreatedAt(now);
 
         LevelHistorySummaryResponse levelHistory = new LevelHistorySummaryResponse();
@@ -117,6 +118,8 @@ class ResourceDetailControllerTest {
                 .andExpect(jsonPath("$.sections[0].resourceSectionId").value(100))
                 .andExpect(jsonPath("$.sections[0].studyStatus.studiedAt").value("2026-06-11T10:00:00Z"))
                 .andExpect(jsonPath("$.memos[0].studyMemoId").value(300))
+                .andExpect(jsonPath("$.memos[0].tags[0]").value("HTTP"))
+                .andExpect(jsonPath("$.memos[0].tags[1]").value("REST"))
                 .andExpect(jsonPath("$.levelHistories[0].level").value(1))
                 .andExpect(jsonPath("$.levelHistories[0].reasonCode").value("INITIAL_STUDY_COMPLETED"))
                 .andExpect(jsonPath("$.learningSessionRecords[0].learningSessionRecordId").value(400))

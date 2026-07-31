@@ -3,6 +3,7 @@ package com.steerlog.dto.response;
 import com.steerlog.entity.StudyMemoType;
 
 import java.time.Instant;
+import java.util.List;
 
 public class StudyMemoSummaryResponse {
 
@@ -10,6 +11,7 @@ public class StudyMemoSummaryResponse {
     private Long resourceSectionId;
     private StudyMemoType memoType;
     private String content;
+    private List<String> tags;
     private Instant createdAt;
 
     public StudyMemoSummaryResponse() {
@@ -45,6 +47,14 @@ public class StudyMemoSummaryResponse {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public List<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = tags;
     }
 
     public Instant getCreatedAt() {

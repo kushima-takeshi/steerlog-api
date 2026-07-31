@@ -694,7 +694,6 @@ DB を直接操作して `progresses` 行を削除した場合の確認用。
 
 ```text
 認証
-StudyMemo tags / important
 ```
 
 ※ `GET /resources/{resourceId}/details`（Resource 統合詳細）は Step 15 参照。  

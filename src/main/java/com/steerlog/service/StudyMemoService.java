@@ -16,7 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class StudyMemoService {
@@ -62,6 +65,7 @@ public class StudyMemoService {
         memo.setResourceSectionId(request.getResourceSectionId());
         memo.setMemoType(request.getMemoType() != null ? request.getMemoType() : StudyMemoType.GENERAL);
         memo.setContent(request.getContent());
+        memo.setTags(formatTags(request.getTags()));
         memo.setDeletedAt(null);
         memo.setCreatedAt(now);
         memo.setUpdatedAt(now);
@@ -140,11 +144,31 @@ public class StudyMemoService {
         if (request.getContent() != null) {
             memo.setContent(request.getContent());
         }
+        if (request.getTags() != null) {
+            memo.setTags(formatTags(request.getTags()));
+        }
         memo.setUpdatedAt(now);
 
         StudyMemo savedMemo = studyMemoRepository.save(memo);
 
         return toStudyMemoResponse(savedMemo);
+    }
+
+    private String formatTags(List<String> tags) {
+        if (tags == null || tags.isEmpty()) {
+            return null;
+        }
+        return String.join(",", tags);
+    }
+
+    private List<String> parseTags(String tags) {
+        if (tags == null || tags.isBlank()) {
+            return Collections.emptyList();
+        }
+        return Arrays.stream(tags.split(","))
+                .map(String::trim)
+                .filter(tag -> !tag.isEmpty())
+                .collect(Collectors.toList());
     }
 
     private StudyMemoResponse toStudyMemoResponse(StudyMemo memo) {
@@ -154,6 +178,7 @@ public class StudyMemoService {
         response.setResourceSectionId(memo.getResourceSectionId());
         response.setMemoType(memo.getMemoType());
         response.setContent(memo.getContent());
+        response.setTags(parseTags(memo.getTags()));
         response.setCreatedAt(memo.getCreatedAt());
         response.setUpdatedAt(memo.getUpdatedAt());
         return response;

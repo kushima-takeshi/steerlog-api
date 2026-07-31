@@ -507,6 +507,7 @@ ON section_study_statuses (user_id, resource_section_id);
 | resource_section_id | リソースセクションID | BIGINT |  | 対象Section。Resource全体メモならNULL |
 | memo_type | メモ種別 | VARCHAR(50) | ○ | GENERAL等 |
 | content | メモ内容 | VARCHAR(500) | ○ | 短いメモ |
+| tags | タグ | TEXT |  | カンマ区切り文字列。API では List |
 | deleted_at | 削除日時 | TIMESTAMPTZ |  | 論理削除 |
 | created_at | 作成日時 | TIMESTAMPTZ | ○ | 作成日時 |
 | updated_at | 更新日時 | TIMESTAMPTZ | ○ | 更新日時 |
@@ -575,7 +576,8 @@ ON study_memos (user_id, resource_id, created_at);
 StudyMemoはLevel条件ではない。  
 StudyMemo作成時に `current_level` は上げない。
 
-`tags` カラムとタグ正規化テーブルはMVP外。
+`tags` は TEXT（カンマ区切り）で軽量保持する（`concept_tags` と同じ方針）。  
+タグ正規化テーブルはMVP外。詳細は `docs/11-technical-decisions.md`。
 
 ---
 
@@ -891,6 +893,7 @@ V6__create_study_memos.sql
 V7__create_learning_sessions.sql
 V8__create_learning_session_records.sql
 V9__add_level_history_reason_codes_for_record.sql
+V10__add_tags_to_study_memos.sql
 ```
 
 最初の縦切りでは、V1〜V5 までを優先する。

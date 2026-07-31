@@ -149,8 +149,19 @@ public class ResourceDetailService {
         response.setResourceSectionId(memo.getResourceSectionId());
         response.setMemoType(memo.getMemoType());
         response.setContent(memo.getContent());
+        response.setTags(parseTags(memo.getTags()));
         response.setCreatedAt(memo.getCreatedAt());
         return response;
+    }
+
+    private List<String> parseTags(String tags) {
+        if (tags == null || tags.isBlank()) {
+            return Collections.emptyList();
+        }
+        return Arrays.stream(tags.split(","))
+                .map(String::trim)
+                .filter(tag -> !tag.isEmpty())
+                .collect(Collectors.toList());
     }
 
     private LevelHistorySummaryResponse toLevelHistorySummaryResponse(LevelHistory levelHistory) {

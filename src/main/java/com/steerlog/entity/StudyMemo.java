@@ -36,6 +36,9 @@ public class StudyMemo {
     @Column(name = "content", nullable = false, length = 500)
     private String content;
 
+    @Column(name = "tags")
+    private String tags;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -94,6 +97,14 @@ public class StudyMemo {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
     }
 
     public Instant getDeletedAt() {
