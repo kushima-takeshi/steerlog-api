@@ -147,6 +147,37 @@ LearningCycle / 再学習軸
 
 ---
 
+## 5. ユーザー登録時の `DataIntegrityViolationException` 処理（2026-08）
+
+### Context
+
+`POST /auth/register` では、事前に `existsByEmail` で重複確認したあと `userRepository.save(user)` する。  
+同時リクエストなどで `existsByEmail` と INSERT の間に競合すると、DB の UNIQUE 制約（`uq_users_email`）違反が起きうる。  
+そのため `AuthService.register` では `DataIntegrityViolationException` を catch し、409 `EMAIL_ALREADY_REGISTERED` へ寄せている。
+
+### Decision
+
+- 事前: `existsByEmail(email)` で 409
+- 保存時: `DataIntegrityViolationException` → 一律 `EmailAlreadyRegisteredException`（409）
+- 実装: [`AuthService.register`](src/main/java/com/steerlog/service/AuthService.java)
+
+### Consequences
+
+- **email 重複以外** の整合性違反（NOT NULL 破り、将来追加した CHECK / FK など）も、現状は同じ 409 として返る可能性がある
+- DB 接続失敗などは別例外のため 500 になりうるが、**制約種別の判別はしていない**
+- MVP では `users` テーブルの主な UNIQUE は `email` のみで、DTO バリデーションもあるため、実運用上は email 競合がほぼ唯一の想定ケース
+
+### Future
+
+- `DataIntegrityViolationException` から制約名（例: `uq_users_email`）または PostgreSQL SQLState を見て、email 重複だけ 409 にマップする
+- email 重複以外は 500 または別 code（例: `INTERNAL_ERROR`）にする
+- 必要なら `saveAndFlush()` で INSERT タイミングを明確化し、catch の位置を分かりやすくする
+- 着手時に GitHub Issue を切る
+
+関連: [`V11__create_users.sql`](src/main/resources/db/migration/V11__create_users.sql)、[`GlobalExceptionHandler`](src/main/java/com/steerlog/exception/GlobalExceptionHandler.java)
+
+---
+
 # 運用
 
 - 新しいトレードオフや暫定実装が出たら、このファイルに節を足す
