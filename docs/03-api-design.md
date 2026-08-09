@@ -32,8 +32,13 @@ MVPでは、Resource登録からLv.1〜Lv.3の学習証跡作成までをAPIで�
 | LearningSession | POST `.../learning-sessions/{id}/complete` | ✅ 実装済み |
 | LearningSession | POST `.../learning-sessions/{id}/record` | ✅ 実装済み |
 | LearningSessionRecord | record API 経由で保存 + Lv.2/Lv.3 到達 | ✅ 実装済み |
+| Auth | POST `/auth/register` | ✅ 実装済み |
+| Auth | POST `/auth/login` | ✅ 実装済み |
+| Auth | GET `/auth/me` | ✅ 実装済み |
 
-認証は未実装。Controller では `TEMP_USER_ID = 1L` 固定。
+認証は自己ホストのメール／パスワード + Bearer JWT。  
+`POST /auth/register` と `POST /auth/login` のみ未認証で利用可能。その他の API は `Authorization: Bearer <token>` 必須。  
+Controller は `CurrentUser.requireUserId()` でログイン中ユーザーを取得し、Service は `user_id` で所有者チェックする。
 
 Resource詳細（`GET /resources/{resourceId}`）は **Resource + Progress のみ**。統合詳細は `GET /resources/{resourceId}/details`（Phase 8 実装済み）を使用する。
 
@@ -55,6 +60,12 @@ SteerLog MVP の全 API をドメイン単位で俯瞰するための図。
 
 ```mermaid
 flowchart TB
+    subgraph AuthDomain["Auth（認証）"]
+        A_REGISTER["POST /auth/register<br/>Register / 登録"]
+        A_LOGIN["POST /auth/login<br/>Login / ログイン"]
+        A_ME["GET /auth/me<br/>Me / ログイン中ユーザー"]
+    end
+
     subgraph ResourceDomain["Resource（学習対象）"]
         R_POST["POST /resources<br/>Create Resource / 登録"]
         R_GET_LIST["GET /resources<br/>List Resources / 一覧"]

@@ -3,6 +3,7 @@ package com.steerlog.controller;
 import com.steerlog.dto.request.CreateResourceSectionRequest;
 import com.steerlog.dto.request.UpdateResourceSectionRequest;
 import com.steerlog.dto.response.ResourceSectionResponse;
+import com.steerlog.security.CurrentUser;
 import com.steerlog.service.ResourceSectionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -22,8 +23,6 @@ import java.util.List;
 @RequestMapping("/resources/{resourceId}/sections")
 public class ResourceSectionController {
 
-    private static final Long TEMP_USER_ID = 1L;
-
     private final ResourceSectionService resourceSectionService;
 
     public ResourceSectionController(ResourceSectionService resourceSectionService) {
@@ -35,7 +34,7 @@ public class ResourceSectionController {
             @PathVariable Long resourceId,
             @Valid @RequestBody CreateResourceSectionRequest request) {
         ResourceSectionResponse response =
-                resourceSectionService.createSection(TEMP_USER_ID, resourceId, request);
+                resourceSectionService.createSection(CurrentUser.requireUserId(), resourceId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -45,7 +44,7 @@ public class ResourceSectionController {
             @PathVariable Long sectionId,
             @Valid @RequestBody UpdateResourceSectionRequest request) {
         ResourceSectionResponse response =
-                resourceSectionService.updateSection(TEMP_USER_ID, resourceId, sectionId, request);
+                resourceSectionService.updateSection(CurrentUser.requireUserId(), resourceId, sectionId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -53,13 +52,13 @@ public class ResourceSectionController {
     public ResponseEntity<Void> deleteSection(
             @PathVariable Long resourceId,
             @PathVariable Long sectionId) {
-        resourceSectionService.deleteSection(TEMP_USER_ID, resourceId, sectionId);
+        resourceSectionService.deleteSection(CurrentUser.requireUserId(), resourceId, sectionId);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping
     public ResponseEntity<List<ResourceSectionResponse>> getSections(@PathVariable Long resourceId) {
-        List<ResourceSectionResponse> responses = resourceSectionService.getSections(TEMP_USER_ID, resourceId);
+        List<ResourceSectionResponse> responses = resourceSectionService.getSections(CurrentUser.requireUserId(), resourceId);
         return ResponseEntity.ok(responses);
     }
 }

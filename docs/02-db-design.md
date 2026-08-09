@@ -45,6 +45,7 @@ MVPでは PostgreSQL を使用する。
 対象：
 
 ```text
+users
 resources
 resource_sections
 progresses
@@ -137,9 +138,10 @@ level_histories は初到達履歴なのでMVPでは削除しない
 
 # 2. テーブル一覧
 
-MVPでは以下の8テーブルを作る。
+MVPでは以下の9テーブルを作る。
 
 ```text
+users
 resources
 resource_sections
 progresses
@@ -171,7 +173,8 @@ galaxy_edges
 
 # 2.5 ドメイン関係図
 
-MVP の主要 8 テーブルがどのように関係するかを示す。  
+MVP の主要テーブルがどのように関係するかを示す。  
+`users` は認証用。業務 8 テーブルの関係は下図。  
 API 実装や Service 設計時に、テーブルごとの責務と参照関係を思い出すための図である。
 
 DB 上は外部キーでつながるが、Java Entity では `@ManyToOne` は使わず `resourceId` などの `Long` ID で扱う。
@@ -216,6 +219,23 @@ flowchart TB
 * `StudyMemo` は学習メモだが、作成・更新・削除では Level を上げない
 * `resources` / `resource_sections` / `study_memos` は論理削除対象
 * Entity では現時点で `@ManyToOne` は使わず、`resourceId` などの Long ID で扱う方針
+
+---
+
+# 2.6 users
+
+認証用ユーザー。Flyway `V11__create_users.sql`。
+
+| カラム | 型 | NULL | 説明 |
+|--------|-----|------|------|
+| user_id | BIGSERIAL | ○ | PK |
+| email | VARCHAR(255) | ○ | UNIQUE（`uq_users_email`） |
+| password_hash | VARCHAR(255) | ○ | BCrypt ハッシュ |
+| created_at | TIMESTAMPTZ | ○ | |
+| updated_at | TIMESTAMPTZ | ○ | |
+
+業務テーブル（`resources` 等）の `user_id` から `users.user_id` への FK は、現状は張らない。  
+所有者チェックは Service が `user_id` 条件で行う。
 
 ---
 

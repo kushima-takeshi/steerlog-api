@@ -6,6 +6,8 @@ import com.steerlog.dto.request.UpdateStudyMemoRequest;
 import com.steerlog.dto.response.StudyMemoResponse;
 import com.steerlog.entity.StudyMemoType;
 import com.steerlog.exception.GlobalExceptionHandler;
+import com.steerlog.support.AuthenticatedControllerTestBase;
+import static com.steerlog.support.SecurityTestSupport.TEST_USER_ID;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.service.StudyMemoService;
 import org.junit.jupiter.api.Test;
@@ -14,7 +16,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -33,14 +34,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(StudyMemoController.class)
+@WebMvcTest(controllers = StudyMemoController.class)
 @Import(GlobalExceptionHandler.class)
-class StudyMemoControllerTest {
+class StudyMemoControllerTest extends AuthenticatedControllerTestBase {
 
-    private static final Long TEMP_USER_ID = 1L;
-
-    @Autowired
-    private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -67,7 +64,7 @@ class StudyMemoControllerTest {
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
 
-        when(studyMemoService.createMemo(eq(TEMP_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class)))
+        when(studyMemoService.createMemo(eq(TEST_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(post("/resources/{resourceId}/memos", resourceId)
@@ -81,7 +78,7 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$.tags[0]").value("HTTP"))
                 .andExpect(jsonPath("$.tags[1]").value("REST"));
 
-        verify(studyMemoService).createMemo(eq(TEMP_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class));
+        verify(studyMemoService).createMemo(eq(TEST_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class));
     }
 
     @Test
@@ -97,7 +94,7 @@ class StudyMemoControllerTest {
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
 
-        when(studyMemoService.getMemos(TEMP_USER_ID, resourceId))
+        when(studyMemoService.getMemos(TEST_USER_ID, resourceId))
                 .thenReturn(List.of(response));
 
         mockMvc.perform(get("/resources/{resourceId}/memos", resourceId))
@@ -106,14 +103,14 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$[0].memoType").value("LEARNED"))
                 .andExpect(jsonPath("$[0].content").value("HTTPの基本を理解した"));
 
-        verify(studyMemoService).getMemos(TEMP_USER_ID, resourceId);
+        verify(studyMemoService).getMemos(TEST_USER_ID, resourceId);
     }
 
     @Test
     void getMemos_shouldReturn200WithEmptyList() throws Exception {
         Long resourceId = 10L;
 
-        when(studyMemoService.getMemos(TEMP_USER_ID, resourceId))
+        when(studyMemoService.getMemos(TEST_USER_ID, resourceId))
                 .thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/resources/{resourceId}/memos", resourceId))
@@ -121,7 +118,7 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(0));
 
-        verify(studyMemoService).getMemos(TEMP_USER_ID, resourceId);
+        verify(studyMemoService).getMemos(TEST_USER_ID, resourceId);
     }
 
     @Test
@@ -138,7 +135,7 @@ class StudyMemoControllerTest {
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
 
-        when(studyMemoService.getMemo(TEMP_USER_ID, resourceId, memoId))
+        when(studyMemoService.getMemo(TEST_USER_ID, resourceId, memoId))
                 .thenReturn(response);
 
         mockMvc.perform(get("/resources/{resourceId}/memos/{memoId}", resourceId, memoId))
@@ -150,7 +147,7 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$.createdAt").value("2026-06-03T10:00:00Z"))
                 .andExpect(jsonPath("$.updatedAt").value("2026-06-03T10:00:00Z"));
 
-        verify(studyMemoService).getMemo(TEMP_USER_ID, resourceId, memoId);
+        verify(studyMemoService).getMemo(TEST_USER_ID, resourceId, memoId);
     }
 
     @Test
@@ -158,7 +155,7 @@ class StudyMemoControllerTest {
         Long resourceId = 10L;
         Long memoId = 500L;
 
-        when(studyMemoService.getMemo(TEMP_USER_ID, resourceId, memoId))
+        when(studyMemoService.getMemo(TEST_USER_ID, resourceId, memoId))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(get("/resources/{resourceId}/memos/{memoId}", resourceId, memoId))
@@ -166,7 +163,7 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(studyMemoService).getMemo(TEMP_USER_ID, resourceId, memoId);
+        verify(studyMemoService).getMemo(TEST_USER_ID, resourceId, memoId);
     }
 
     @Test
@@ -174,7 +171,7 @@ class StudyMemoControllerTest {
         Long resourceId = 10L;
         Long memoId = 500L;
 
-        when(studyMemoService.getMemo(TEMP_USER_ID, resourceId, memoId))
+        when(studyMemoService.getMemo(TEST_USER_ID, resourceId, memoId))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(get("/resources/{resourceId}/memos/{memoId}", resourceId, memoId))
@@ -182,7 +179,7 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(studyMemoService).getMemo(TEMP_USER_ID, resourceId, memoId);
+        verify(studyMemoService).getMemo(TEST_USER_ID, resourceId, memoId);
     }
 
     @Test
@@ -192,7 +189,7 @@ class StudyMemoControllerTest {
         CreateStudyMemoRequest request = new CreateStudyMemoRequest();
         request.setContent("メモ内容");
 
-        when(studyMemoService.createMemo(eq(TEMP_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class)))
+        when(studyMemoService.createMemo(eq(TEST_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class)))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(post("/resources/{resourceId}/memos", resourceId)
@@ -202,7 +199,7 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(studyMemoService).createMemo(eq(TEMP_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class));
+        verify(studyMemoService).createMemo(eq(TEST_USER_ID), eq(resourceId), any(CreateStudyMemoRequest.class));
     }
 
     @Test
@@ -225,7 +222,7 @@ class StudyMemoControllerTest {
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
 
-        when(studyMemoService.updateMemo(eq(TEMP_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class)))
+        when(studyMemoService.updateMemo(eq(TEST_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(patch("/resources/{resourceId}/memos/{memoId}", resourceId, memoId)
@@ -238,7 +235,7 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$.tags[0]").value("JSON"))
                 .andExpect(jsonPath("$.tags[1]").value("API"));
 
-        verify(studyMemoService).updateMemo(eq(TEMP_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class));
+        verify(studyMemoService).updateMemo(eq(TEST_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class));
     }
 
     @Test
@@ -249,7 +246,7 @@ class StudyMemoControllerTest {
         UpdateStudyMemoRequest request = new UpdateStudyMemoRequest();
         request.setContent("更新後メモ");
 
-        when(studyMemoService.updateMemo(eq(TEMP_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class)))
+        when(studyMemoService.updateMemo(eq(TEST_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class)))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(patch("/resources/{resourceId}/memos/{memoId}", resourceId, memoId)
@@ -259,7 +256,7 @@ class StudyMemoControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(studyMemoService).updateMemo(eq(TEMP_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class));
+        verify(studyMemoService).updateMemo(eq(TEST_USER_ID), eq(resourceId), eq(memoId), any(UpdateStudyMemoRequest.class));
     }
 
     @Test
@@ -267,12 +264,12 @@ class StudyMemoControllerTest {
         Long resourceId = 10L;
         Long memoId = 500L;
 
-        doNothing().when(studyMemoService).deleteMemo(TEMP_USER_ID, resourceId, memoId);
+        doNothing().when(studyMemoService).deleteMemo(TEST_USER_ID, resourceId, memoId);
 
         mockMvc.perform(delete("/resources/{resourceId}/memos/{memoId}", resourceId, memoId))
                 .andExpect(status().isNoContent());
 
-        verify(studyMemoService).deleteMemo(TEMP_USER_ID, resourceId, memoId);
+        verify(studyMemoService).deleteMemo(TEST_USER_ID, resourceId, memoId);
     }
 
     @Test
@@ -281,13 +278,13 @@ class StudyMemoControllerTest {
         Long memoId = 500L;
 
         doThrow(new ResourceNotFoundException("Resource not found"))
-                .when(studyMemoService).deleteMemo(TEMP_USER_ID, resourceId, memoId);
+                .when(studyMemoService).deleteMemo(TEST_USER_ID, resourceId, memoId);
 
         mockMvc.perform(delete("/resources/{resourceId}/memos/{memoId}", resourceId, memoId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(studyMemoService).deleteMemo(TEMP_USER_ID, resourceId, memoId);
+        verify(studyMemoService).deleteMemo(TEST_USER_ID, resourceId, memoId);
     }
 }

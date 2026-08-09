@@ -8,6 +8,7 @@ import com.steerlog.dto.response.DiscardLearningSessionResponse;
 import com.steerlog.dto.response.LearningSessionRecordResponse;
 import com.steerlog.dto.response.LearningSessionResponse;
 import com.steerlog.dto.response.SubmitLearningSessionResponseResponse;
+import com.steerlog.security.CurrentUser;
 import com.steerlog.service.LearningSessionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -22,8 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/resources/{resourceId}/learning-sessions")
 public class LearningSessionController {
 
-    private static final Long TEMP_USER_ID = 1L;
-
     private final LearningSessionService learningSessionService;
 
     public LearningSessionController(LearningSessionService learningSessionService) {
@@ -35,7 +34,7 @@ public class LearningSessionController {
             @PathVariable Long resourceId,
             @Valid @RequestBody StartLearningSessionRequest request) {
         LearningSessionResponse response =
-                learningSessionService.startSession(TEMP_USER_ID, resourceId, request);
+                learningSessionService.startSession(CurrentUser.requireUserId(), resourceId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -44,7 +43,7 @@ public class LearningSessionController {
             @PathVariable Long resourceId,
             @PathVariable Long learningSessionId) {
         DiscardLearningSessionResponse response =
-                learningSessionService.discardSession(TEMP_USER_ID, resourceId, learningSessionId);
+                learningSessionService.discardSession(CurrentUser.requireUserId(), resourceId, learningSessionId);
         return ResponseEntity.ok(response);
     }
 
@@ -54,7 +53,7 @@ public class LearningSessionController {
             @PathVariable Long learningSessionId,
             @Valid @RequestBody SubmitLearningSessionResponseRequest request) {
         SubmitLearningSessionResponseResponse response = learningSessionService.submitResponse(
-                TEMP_USER_ID, resourceId, learningSessionId, request);
+                CurrentUser.requireUserId(), resourceId, learningSessionId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -63,7 +62,7 @@ public class LearningSessionController {
             @PathVariable Long resourceId,
             @PathVariable Long learningSessionId) {
         CompleteLearningSessionResponse response =
-                learningSessionService.completeSession(TEMP_USER_ID, resourceId, learningSessionId);
+                learningSessionService.completeSession(CurrentUser.requireUserId(), resourceId, learningSessionId);
         return ResponseEntity.ok(response);
     }
 
@@ -73,7 +72,7 @@ public class LearningSessionController {
             @PathVariable Long learningSessionId,
             @Valid @RequestBody SaveLearningSessionRecordRequest request) {
         LearningSessionRecordResponse response = learningSessionService.saveRecord(
-                TEMP_USER_ID, resourceId, learningSessionId, request);
+                CurrentUser.requireUserId(), resourceId, learningSessionId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

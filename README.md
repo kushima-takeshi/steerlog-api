@@ -42,19 +42,27 @@ SteerLog は現在、バックエンド API を中心に実装しているアプ
 - Spring Boot 3.4.5
 - Maven
 - PostgreSQL
-- Flyway（V1〜V10）
+- Flyway（V1〜V11）
 - Spring Data JPA
+- Spring Security + JWT（jjwt）
 - JUnit 5
 - Mockito
 - MockMvc
 - Docker Compose
 - Lombok なし
 
-認証は未実装。Controller では `TEMP_USER_ID = 1L` 固定。
+認証は自己ホストのメール／パスワード + Bearer JWT。  
+業務 API は `Authorization: Bearer <token>` 必須。Controller は `CurrentUser.requireUserId()` でログイン中ユーザーを取得する。
 
 ---
 
 ## 実装済み機能
+
+### Auth
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /auth/me`
 
 ### Resource
 
@@ -162,7 +170,9 @@ mvn test
 
 ## 未実装 / Next（MVP 内）
 
-- 認証
+- リフレッシュトークン
+- パスワードリセット
+- OAuth / OIDC
 
 ## MVP 外（まだ作らない）
 

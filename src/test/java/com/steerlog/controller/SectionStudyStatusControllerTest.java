@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.steerlog.dto.request.UpdateSectionStudyStatusRequest;
 import com.steerlog.dto.response.SectionStudyStatusResponse;
 import com.steerlog.exception.GlobalExceptionHandler;
+import com.steerlog.support.AuthenticatedControllerTestBase;
+import static com.steerlog.support.SecurityTestSupport.TEST_USER_ID;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.service.SectionStudyStatusService;
 import org.junit.jupiter.api.Test;
@@ -12,7 +14,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 
@@ -25,14 +26,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(SectionStudyStatusController.class)
+@WebMvcTest(controllers = SectionStudyStatusController.class)
 @Import(GlobalExceptionHandler.class)
-class SectionStudyStatusControllerTest {
+class SectionStudyStatusControllerTest extends AuthenticatedControllerTestBase {
 
-    private static final Long TEMP_USER_ID = 1L;
-
-    @Autowired
-    private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -59,7 +56,7 @@ class SectionStudyStatusControllerTest {
         response.setUpdatedAt(now);
 
         when(sectionStudyStatusService.updateStudyStatus(
-                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateSectionStudyStatusRequest.class)))
+                eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateSectionStudyStatusRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}/study-status", resourceId, sectionId)
@@ -72,7 +69,7 @@ class SectionStudyStatusControllerTest {
                 .andExpect(jsonPath("$.studiedAt").value("2026-06-05T10:00:00Z"));
 
         verify(sectionStudyStatusService).updateStudyStatus(
-                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateSectionStudyStatusRequest.class));
+                eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateSectionStudyStatusRequest.class));
     }
 
     @Test
@@ -84,7 +81,7 @@ class SectionStudyStatusControllerTest {
         request.setStudiedAt(Instant.parse("2026-06-05T10:00:00Z"));
 
         when(sectionStudyStatusService.updateStudyStatus(
-                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateSectionStudyStatusRequest.class)))
+                eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateSectionStudyStatusRequest.class)))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}/study-status", resourceId, sectionId)
@@ -95,7 +92,7 @@ class SectionStudyStatusControllerTest {
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
         verify(sectionStudyStatusService).updateStudyStatus(
-                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateSectionStudyStatusRequest.class));
+                eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateSectionStudyStatusRequest.class));
     }
 
     @Test
@@ -113,7 +110,7 @@ class SectionStudyStatusControllerTest {
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
 
-        when(sectionStudyStatusService.getStudyStatus(TEMP_USER_ID, resourceId, sectionId))
+        when(sectionStudyStatusService.getStudyStatus(TEST_USER_ID, resourceId, sectionId))
                 .thenReturn(response);
 
         mockMvc.perform(get("/resources/{resourceId}/sections/{sectionId}/study-status", resourceId, sectionId))
@@ -125,7 +122,7 @@ class SectionStudyStatusControllerTest {
                 .andExpect(jsonPath("$.createdAt").value("2026-06-05T12:00:00Z"))
                 .andExpect(jsonPath("$.updatedAt").value("2026-06-05T12:00:00Z"));
 
-        verify(sectionStudyStatusService).getStudyStatus(TEMP_USER_ID, resourceId, sectionId);
+        verify(sectionStudyStatusService).getStudyStatus(TEST_USER_ID, resourceId, sectionId);
     }
 
     @Test
@@ -142,7 +139,7 @@ class SectionStudyStatusControllerTest {
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
 
-        when(sectionStudyStatusService.getStudyStatus(TEMP_USER_ID, resourceId, sectionId))
+        when(sectionStudyStatusService.getStudyStatus(TEST_USER_ID, resourceId, sectionId))
                 .thenReturn(response);
 
         mockMvc.perform(get("/resources/{resourceId}/sections/{sectionId}/study-status", resourceId, sectionId))
@@ -150,7 +147,7 @@ class SectionStudyStatusControllerTest {
                 .andExpect(jsonPath("$.sectionStudyStatusId").value(200))
                 .andExpect(jsonPath("$.studiedAt").doesNotExist());
 
-        verify(sectionStudyStatusService).getStudyStatus(TEMP_USER_ID, resourceId, sectionId);
+        verify(sectionStudyStatusService).getStudyStatus(TEST_USER_ID, resourceId, sectionId);
     }
 
     @Test
@@ -158,7 +155,7 @@ class SectionStudyStatusControllerTest {
         Long resourceId = 10L;
         Long sectionId = 100L;
 
-        when(sectionStudyStatusService.getStudyStatus(TEMP_USER_ID, resourceId, sectionId))
+        when(sectionStudyStatusService.getStudyStatus(TEST_USER_ID, resourceId, sectionId))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(get("/resources/{resourceId}/sections/{sectionId}/study-status", resourceId, sectionId))
@@ -166,7 +163,7 @@ class SectionStudyStatusControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(sectionStudyStatusService).getStudyStatus(TEMP_USER_ID, resourceId, sectionId);
+        verify(sectionStudyStatusService).getStudyStatus(TEST_USER_ID, resourceId, sectionId);
     }
 
     @Test
@@ -174,13 +171,13 @@ class SectionStudyStatusControllerTest {
         Long resourceId = 10L;
         Long sectionId = 100L;
 
-        when(sectionStudyStatusService.getStudyStatus(TEMP_USER_ID, resourceId, sectionId))
+        when(sectionStudyStatusService.getStudyStatus(TEST_USER_ID, resourceId, sectionId))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(get("/resources/{resourceId}/sections/{sectionId}/study-status", resourceId, sectionId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
 
-        verify(sectionStudyStatusService).getStudyStatus(TEMP_USER_ID, resourceId, sectionId);
+        verify(sectionStudyStatusService).getStudyStatus(TEST_USER_ID, resourceId, sectionId);
     }
 }

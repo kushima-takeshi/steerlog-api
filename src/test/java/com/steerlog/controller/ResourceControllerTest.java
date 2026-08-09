@@ -10,6 +10,8 @@ import com.steerlog.dto.response.ResourceListItemResponse;
 import com.steerlog.entity.ProgressStatus;
 import com.steerlog.entity.ResourceType;
 import com.steerlog.exception.GlobalExceptionHandler;
+import com.steerlog.support.AuthenticatedControllerTestBase;
+import static com.steerlog.support.SecurityTestSupport.TEST_USER_ID;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.service.ResourceService;
 import org.junit.jupiter.api.Test;
@@ -18,7 +20,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -37,14 +38,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(ResourceController.class)
+@WebMvcTest(controllers = ResourceController.class)
 @Import(GlobalExceptionHandler.class)
-class ResourceControllerTest {
+class ResourceControllerTest extends AuthenticatedControllerTestBase {
 
-    private static final Long TEMP_USER_ID = 1L;
-
-    @Autowired
-    private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -61,7 +58,7 @@ class ResourceControllerTest {
 
         CreateResourceResponse response = buildCreateResourceResponse(10L, "Webを支える技術");
 
-        when(resourceService.createResource(eq(TEMP_USER_ID), any(CreateResourceRequest.class)))
+        when(resourceService.createResource(eq(TEST_USER_ID), any(CreateResourceRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(post("/resources")
@@ -73,14 +70,14 @@ class ResourceControllerTest {
                 .andExpect(jsonPath("$.progress.status").value("NOT_STARTED"))
                 .andExpect(jsonPath("$.progress.currentLevel").value(0));
 
-        verify(resourceService).createResource(eq(TEMP_USER_ID), any(CreateResourceRequest.class));
+        verify(resourceService).createResource(eq(TEST_USER_ID), any(CreateResourceRequest.class));
     }
 
     @Test
     void getResources_shouldReturn200WithResourceList() throws Exception {
         ResourceListItemResponse item = buildResourceListItemResponse(10L, "Webを支える技術");
 
-        when(resourceService.getResources(TEMP_USER_ID)).thenReturn(List.of(item));
+        when(resourceService.getResources(TEST_USER_ID)).thenReturn(List.of(item));
 
         mockMvc.perform(get("/resources"))
                 .andExpect(status().isOk())
@@ -89,19 +86,19 @@ class ResourceControllerTest {
                 .andExpect(jsonPath("$[0].progress.status").value("NOT_STARTED"))
                 .andExpect(jsonPath("$[0].progress.currentLevel").value(0));
 
-        verify(resourceService).getResources(TEMP_USER_ID);
+        verify(resourceService).getResources(TEST_USER_ID);
     }
 
     @Test
     void getResources_shouldReturn200WithEmptyList() throws Exception {
-        when(resourceService.getResources(TEMP_USER_ID)).thenReturn(Collections.emptyList());
+        when(resourceService.getResources(TEST_USER_ID)).thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/resources"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(0));
 
-        verify(resourceService).getResources(TEMP_USER_ID);
+        verify(resourceService).getResources(TEST_USER_ID);
     }
 
     @Test
@@ -109,7 +106,7 @@ class ResourceControllerTest {
         Long resourceId = 10L;
         ResourceWithProgressResponse response = buildResourceWithProgressResponse(resourceId, "Webを支える技術");
 
-        when(resourceService.getResourceDetail(TEMP_USER_ID, resourceId)).thenReturn(response);
+        when(resourceService.getResourceDetail(TEST_USER_ID, resourceId)).thenReturn(response);
 
         mockMvc.perform(get("/resources/{resourceId}", resourceId))
                 .andExpect(status().isOk())
@@ -118,7 +115,7 @@ class ResourceControllerTest {
                 .andExpect(jsonPath("$.progress.status").value("NOT_STARTED"))
                 .andExpect(jsonPath("$.progress.currentLevel").value(0));
 
-        verify(resourceService).getResourceDetail(TEMP_USER_ID, resourceId);
+        verify(resourceService).getResourceDetail(TEST_USER_ID, resourceId);
     }
 
     @Test
@@ -129,7 +126,7 @@ class ResourceControllerTest {
 
         ResourceWithProgressResponse response = buildResourceWithProgressResponse(resourceId, "更新後タイトル");
 
-        when(resourceService.updateResource(eq(TEMP_USER_ID), eq(resourceId), any(UpdateResourceRequest.class)))
+        when(resourceService.updateResource(eq(TEST_USER_ID), eq(resourceId), any(UpdateResourceRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(patch("/resources/{resourceId}", resourceId)
@@ -141,7 +138,7 @@ class ResourceControllerTest {
                 .andExpect(jsonPath("$.progress.status").value("NOT_STARTED"))
                 .andExpect(jsonPath("$.progress.currentLevel").value(0));
 
-        verify(resourceService).updateResource(eq(TEMP_USER_ID), eq(resourceId), any(UpdateResourceRequest.class));
+        verify(resourceService).updateResource(eq(TEST_USER_ID), eq(resourceId), any(UpdateResourceRequest.class));
     }
 
     @Test
@@ -150,7 +147,7 @@ class ResourceControllerTest {
         UpdateResourceRequest request = new UpdateResourceRequest();
         request.setTitle("更新後タイトル");
 
-        when(resourceService.updateResource(eq(TEMP_USER_ID), eq(resourceId), any(UpdateResourceRequest.class)))
+        when(resourceService.updateResource(eq(TEST_USER_ID), eq(resourceId), any(UpdateResourceRequest.class)))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(patch("/resources/{resourceId}", resourceId)
@@ -160,19 +157,19 @@ class ResourceControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(resourceService).updateResource(eq(TEMP_USER_ID), eq(resourceId), any(UpdateResourceRequest.class));
+        verify(resourceService).updateResource(eq(TEST_USER_ID), eq(resourceId), any(UpdateResourceRequest.class));
     }
 
     @Test
     void deleteResource_shouldReturn204() throws Exception {
         Long resourceId = 10L;
 
-        doNothing().when(resourceService).deleteResource(TEMP_USER_ID, resourceId);
+        doNothing().when(resourceService).deleteResource(TEST_USER_ID, resourceId);
 
         mockMvc.perform(delete("/resources/{resourceId}", resourceId))
                 .andExpect(status().isNoContent());
 
-        verify(resourceService).deleteResource(TEMP_USER_ID, resourceId);
+        verify(resourceService).deleteResource(TEST_USER_ID, resourceId);
     }
 
     @Test
@@ -180,21 +177,21 @@ class ResourceControllerTest {
         Long resourceId = 10L;
 
         doThrow(new ResourceNotFoundException("Resource not found"))
-                .when(resourceService).deleteResource(TEMP_USER_ID, resourceId);
+                .when(resourceService).deleteResource(TEST_USER_ID, resourceId);
 
         mockMvc.perform(delete("/resources/{resourceId}", resourceId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(resourceService).deleteResource(TEMP_USER_ID, resourceId);
+        verify(resourceService).deleteResource(TEST_USER_ID, resourceId);
     }
 
     @Test
     void getResourceDetail_shouldReturn404WhenResourceNotFound() throws Exception {
         Long resourceId = 10L;
 
-        when(resourceService.getResourceDetail(TEMP_USER_ID, resourceId))
+        when(resourceService.getResourceDetail(TEST_USER_ID, resourceId))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(get("/resources/{resourceId}", resourceId))
@@ -202,7 +199,7 @@ class ResourceControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(resourceService).getResourceDetail(TEMP_USER_ID, resourceId);
+        verify(resourceService).getResourceDetail(TEST_USER_ID, resourceId);
     }
 
     private CreateResourceResponse buildCreateResourceResponse(Long resourceId, String title) {

@@ -65,29 +65,36 @@ StudyMemo の `tags` も同様の軽量が求められ、タグ正規化テー�
 
 ---
 
-## 2. 認証未実装: TEMP_USER_ID 固定（2026-07）
+## 2. 認証: 自己ホスト JWT（Bearer）（2026-08）
 
 ### Context
 
-MVP ではまず学習証跡の縦切りを優先した。認可・ログインより Resource / Progress / Session の流れを先に固める判断。
+初期 MVP では学習証跡の縦切りを優先し、Controller は `TEMP_USER_ID = 1L` 固定だった。  
+フロントは React SPA を想定し、自己ホストのメール／パスワード + Bearer JWT で認証を導入する。
 
 ### Decision
 
-- 認証は未実装
-- Controller では `TEMP_USER_ID = 1L` 固定で user を扱う
-- テーブルには `user_id` を持ち、将来の認可に備える
+- `users` テーブル（V11）で email / password_hash を管理
+- `POST /auth/register`・`POST /auth/login` で JWT を発行（`Authorization: Bearer`）
+- `GET /auth/me` および業務 API は認証必須
+- Controller は `CurrentUser.requireUserId()` でログイン中ユーザーを取得
+- 既存業務テーブルの `user_id` への FK はまだ張らない（所有者チェックは Service 側）
+- リフレッシュトークン・パスワードリセット・OAuth/OIDC は MVP 外
 
 ### Consequences
 
-- マルチユーザーでは使えない
-- 認可バグが本番相当では致命傷になる（現状は単一ユーザー前提）
+- トークンなしの業務 API は 401
+- JWT はステートレスのため、発行後の即時失効は未対応（有効期限切れまで有効）
+- JWT secret は環境変数 `STEERLOG_JWT_SECRET` で上書きする前提（開発用デフォルトあり）
 
 ### Future
 
-- 認証・認可の導入（MVP Next）
-- 導入後も「自分の Resource 以外は触れない」チェックは必須（`06-implementation-rules`）
+- リフレッシュトークン / 短い access token
+- パスワードリセット
+- OAuth / OIDC
+- 必要なら業務テーブルから `users` への FK 追加
 
-関連: ルート `README.md`、`docs/06-implementation-rules.md`
+関連: ルート `README.md`、`docs/03-api-design.md`、`docs/06-implementation-rules.md`、`SecurityConfig`
 
 ---
 
@@ -144,6 +151,37 @@ LearningCycle / 再学習軸
 - 必要になった項目だけ Design / ADR 節を追加し、Issue を切って着手する
 
 関連: `docs/01-mvp-scope.md`、`docs/README.md` の注意欄
+
+---
+
+## 5. ユーザー登録時の `DataIntegrityViolationException` 処理（2026-08）
+
+### Context
+
+`POST /auth/register` では、事前に `existsByEmail` で重複確認したあと `userRepository.save(user)` する。  
+同時リクエストなどで `existsByEmail` と INSERT の間に競合すると、DB の UNIQUE 制約（`uq_users_email`）違反が起きうる。  
+そのため `AuthService.register` では `DataIntegrityViolationException` を catch し、409 `EMAIL_ALREADY_REGISTERED` へ寄せている。
+
+### Decision
+
+- 事前: `existsByEmail(email)` で 409
+- 保存時: `DataIntegrityViolationException` → 一律 `EmailAlreadyRegisteredException`（409）
+- 実装: [`AuthService.register`](src/main/java/com/steerlog/service/AuthService.java)
+
+### Consequences
+
+- **email 重複以外** の整合性違反（NOT NULL 破り、将来追加した CHECK / FK など）も、現状は同じ 409 として返る可能性がある
+- DB 接続失敗などは別例外のため 500 になりうるが、**制約種別の判別はしていない**
+- MVP では `users` テーブルの主な UNIQUE は `email` のみで、DTO バリデーションもあるため、実運用上は email 競合がほぼ唯一の想定ケース
+
+### Future
+
+- `DataIntegrityViolationException` から制約名（例: `uq_users_email`）または PostgreSQL SQLState を見て、email 重複だけ 409 にマップする
+- email 重複以外は 500 または別 code（例: `INTERNAL_ERROR`）にする
+- 必要なら `saveAndFlush()` で INSERT タイミングを明確化し、catch の位置を分かりやすくする
+- 着手時に GitHub Issue を切る
+
+関連: [`V11__create_users.sql`](src/main/resources/db/migration/V11__create_users.sql)、[`GlobalExceptionHandler`](src/main/java/com/steerlog/exception/GlobalExceptionHandler.java)
 
 ---
 

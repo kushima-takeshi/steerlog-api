@@ -5,7 +5,7 @@
 ## 目的
 
 実装済み API を `localhost:8080` 上で順番に確認するための curl 集。  
-認証は未実装のため、ヘッダーは不要。
+認証は Bearer JWT 必須。先に register / login でトークンを取得し、以降のリクエストに付ける。
 
 ## 使い方
 
@@ -30,14 +30,73 @@ HTTPステータスも確認したい場合は、以下のように `-i` を付�
 例1：ヘッダー込みで確認する
 
 ```bash
-curl -i http://localhost:8080/resources/{resourceId}
+curl -i http://localhost:8080/resources/{resourceId} \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 例2：HTTPステータスだけ確認する
 
 ```bash
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/resources/{resourceId}
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/resources/{resourceId} \
+  -H "Authorization: Bearer $TOKEN"
 ```
+
+---
+
+## 0. 認証（register / login）
+
+### 0-1. ユーザー登録
+
+```bash
+curl -s -X POST http://localhost:8080/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "manual-check@example.com",
+    "password": "password123"
+  }'
+```
+
+**確認ポイント**
+- HTTP 201 Created
+- `accessToken` / `tokenType`（`Bearer`） / `expiresIn` / `user` が返る
+
+レスポンスの `accessToken` を控えて環境変数に入れる。
+
+```bash
+TOKEN='ここにaccessTokenを貼る'
+```
+
+以降の curl では次を付ける。
+
+```bash
+-H "Authorization: Bearer $TOKEN"
+```
+
+### 0-2. ログイン（再取得）
+
+```bash
+curl -s -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "manual-check@example.com",
+    "password": "password123"
+  }'
+```
+
+**確認ポイント**
+- HTTP 200 OK
+- 新しい `accessToken` が返る（`$TOKEN` を差し替える）
+
+### 0-3. ログイン中ユーザー
+
+```bash
+curl -s http://localhost:8080/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+**確認ポイント**
+- HTTP 200 OK
+- `userId` / `email` が返る
 
 ---
 
@@ -46,6 +105,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/resources/{resour
 ```bash
 curl -s -X POST http://localhost:8080/resources \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "resourceType": "BOOK",
     "title": "Webを支える技術",
@@ -64,7 +124,8 @@ curl -s -X POST http://localhost:8080/resources \
 ## 2. Resource 一覧取得
 
 ```bash
-curl -s http://localhost:8080/resources
+curl -s http://localhost:8080/resources \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -77,7 +138,8 @@ curl -s http://localhost:8080/resources
 ## 3. Resource 詳細取得
 
 ```bash
-curl -s http://localhost:8080/resources/{resourceId}
+curl -s http://localhost:8080/resources/{resourceId} \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -93,6 +155,7 @@ curl -s http://localhost:8080/resources/{resourceId}
 ```bash
 curl -s -X PATCH http://localhost:8080/resources/{resourceId} \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "title": "Webを支える技術（更新版）",
     "description": "PATCH確認済み"
@@ -111,6 +174,7 @@ curl -s -X PATCH http://localhost:8080/resources/{resourceId} \
 ```bash
 curl -s -X POST http://localhost:8080/resources/{resourceId}/sections \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "title": "第1章 Webとは何か",
     "sectionOrder": 1
@@ -127,7 +191,8 @@ curl -s -X POST http://localhost:8080/resources/{resourceId}/sections \
 ## 6. Section 一覧取得
 
 ```bash
-curl -s http://localhost:8080/resources/{resourceId}/sections
+curl -s http://localhost:8080/resources/{resourceId}/sections \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -142,6 +207,7 @@ curl -s http://localhost:8080/resources/{resourceId}/sections
 ```bash
 curl -s -X PATCH http://localhost:8080/resources/{resourceId}/sections/{sectionId}/study-status \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "studiedAt": "2026-06-07T10:00:00Z"
   }'
@@ -157,7 +223,8 @@ curl -s -X PATCH http://localhost:8080/resources/{resourceId}/sections/{sectionI
 ## 8. Progress 取得
 
 ```bash
-curl -s http://localhost:8080/resources/{resourceId}/progress
+curl -s http://localhost:8080/resources/{resourceId}/progress \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -171,7 +238,8 @@ curl -s http://localhost:8080/resources/{resourceId}/progress
 ## 9. LevelHistory 取得
 
 ```bash
-curl -s http://localhost:8080/resources/{resourceId}/level-histories
+curl -s http://localhost:8080/resources/{resourceId}/level-histories \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -184,7 +252,8 @@ curl -s http://localhost:8080/resources/{resourceId}/level-histories
 ## 10. complete-initial-study（Lv.1 明示到達）
 
 ```bash
-curl -s -X POST http://localhost:8080/resources/{resourceId}/progress/complete-initial-study
+curl -s -X POST http://localhost:8080/resources/{resourceId}/progress/complete-initial-study \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -200,6 +269,7 @@ curl -s -X POST http://localhost:8080/resources/{resourceId}/progress/complete-i
 ```bash
 curl -s -X POST http://localhost:8080/resources/{resourceId}/memos \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "resourceSectionId": {sectionId},
     "memoType": "LEARNED",
@@ -218,7 +288,8 @@ curl -s -X POST http://localhost:8080/resources/{resourceId}/memos \
 ## 12. StudyMemo 一覧取得
 
 ```bash
-curl -s http://localhost:8080/resources/{resourceId}/memos
+curl -s http://localhost:8080/resources/{resourceId}/memos \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -233,6 +304,7 @@ curl -s http://localhost:8080/resources/{resourceId}/memos
 ```bash
 curl -s -X PATCH http://localhost:8080/resources/{resourceId}/memos/{memoId} \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "content": "HTTPの基本を理解した（更新版）",
     "memoType": "QUESTION"
@@ -250,6 +322,7 @@ curl -s -X PATCH http://localhost:8080/resources/{resourceId}/memos/{memoId} \
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "Authorization: Bearer $TOKEN" \
   -X DELETE http://localhost:8080/resources/{resourceId}/memos/{memoId}
 ```
 
@@ -264,13 +337,15 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 Phase 8 で実装済み。Resource に紐づく進捗・Section・Memo・LevelHistory・LearningSessionRecord を 1 リクエストでまとめて取得する。
 
 ```bash
-curl -i http://localhost:8080/resources/{resourceId}/details
+curl -i http://localhost:8080/resources/{resourceId} \
+  -H "Authorization: Bearer $TOKEN"/details
 ```
 
 レスポンス本文だけ見る場合:
 
 ```bash
-curl -s http://localhost:8080/resources/{resourceId}/details
+curl -s http://localhost:8080/resources/{resourceId}/details \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認対象**
@@ -348,6 +423,7 @@ start → responses → responses → complete → record
 ```bash
 curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "sessionType": "IMMEDIATE_REFLECTION"
   }'
@@ -369,6 +445,7 @@ curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
 ```bash
 curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/responses \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "responseText": "REST APIではリソースをURIで表現し、HTTPメソッドで操作を表します。"
   }'
@@ -388,6 +465,7 @@ curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{
 ```bash
 curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/responses \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "responseText": "PUTとPATCHの違いを、Progress更新APIの設計に活かせます。"
   }'
@@ -404,7 +482,8 @@ curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{
 ## 19. LearningSession — IMMEDIATE_REFLECTION（complete）
 
 ```bash
-curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/complete
+curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/complete \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -422,6 +501,7 @@ curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{
 ```bash
 curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/record \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "summary": "REST APIの基本とHTTPメソッドの使い分けを振り返った",
     "conceptTags": ["REST", "HTTP", "PATCH"],
@@ -443,7 +523,8 @@ curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{
 ## 21. LearningSession — IMMEDIATE_REFLECTION 後の Progress / LevelHistory 確認
 
 ```bash
-curl -s http://localhost:8080/resources/{resourceId}/progress
+curl -s http://localhost:8080/resources/{resourceId}/progress \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -451,7 +532,8 @@ curl -s http://localhost:8080/resources/{resourceId}/progress
 - 既に Lv.3 なら下がらない
 
 ```bash
-curl -s http://localhost:8080/resources/{resourceId}/level-histories
+curl -s http://localhost:8080/resources/{resourceId}/level-histories \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -479,6 +561,7 @@ start DELAYED_RECALL → responses → responses → complete → record
 ```bash
 curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "sessionType": "DELAYED_RECALL"
   }'
@@ -517,6 +600,7 @@ Step 16〜21 で `RECORD_SAVED` になった Session は破棄不可のため、
 ```bash
 curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "sessionType": "IMMEDIATE_REFLECTION"
   }'
@@ -527,7 +611,8 @@ curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
 ### discard
 
 ```bash
-curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionIdDiscard}/discard
+curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionIdDiscard}/discard \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -544,7 +629,8 @@ curl -s -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{
 ## 24. LearningSessionRecord 保存後の Resource Detail 確認
 
 ```bash
-curl -s http://localhost:8080/resources/{resourceId}/details
+curl -s http://localhost:8080/resources/{resourceId}/details \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -565,6 +651,7 @@ curl -s http://localhost:8080/resources/{resourceId}/details
 ```bash
 curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "sessionType": "DELAYED_RECALL"
   }'
@@ -581,6 +668,7 @@ curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
 ```bash
 curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "sessionType": "IMMEDIATE_REFLECTION"
   }'
@@ -597,6 +685,7 @@ curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions \
 ```bash
 curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/responses \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "responseText": "回答テキスト"
   }'
@@ -611,7 +700,8 @@ curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{
 `currentStep < totalSteps` の状態（responses 未完了）で complete する。
 
 ```bash
-curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/complete
+curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/complete \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -629,6 +719,7 @@ curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{
 ```bash
 curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/record \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{
     "summary": "テスト",
     "aiAssessment": "OFF_TOPIC"
@@ -644,7 +735,8 @@ curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{
 `RECORD_SAVED` または `DISCARDED` の Session を discard する（Step 20 完了後の Session 等）。
 
 ```bash
-curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/discard
+curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{learningSessionId}/discard \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -656,7 +748,8 @@ curl -i -X POST http://localhost:8080/resources/{resourceId}/learning-sessions/{
 ## 26. 存在しない Resource で 404 確認
 
 ```bash
-curl -s http://localhost:8080/resources/999999
+curl -s http://localhost:8080/resources/999999 \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**
@@ -668,7 +761,8 @@ curl -s http://localhost:8080/resources/999999
 ## 27. Resource Detail — 存在しない Resource で 404 確認
 
 ```bash
-curl -i http://localhost:8080/resources/999999/details
+curl -i http://localhost:8080/resources/999999/details \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **確認ポイント**

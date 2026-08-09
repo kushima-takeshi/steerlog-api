@@ -5,6 +5,7 @@ import com.steerlog.dto.request.UpdateResourceRequest;
 import com.steerlog.dto.response.CreateResourceResponse;
 import com.steerlog.dto.response.ResourceWithProgressResponse;
 import com.steerlog.dto.response.ResourceListItemResponse;
+import com.steerlog.security.CurrentUser;
 import com.steerlog.service.ResourceService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -24,8 +25,6 @@ import java.util.List;
 @RequestMapping("/resources")
 public class ResourceController {
 
-    private static final Long TEMP_USER_ID = 1L;
-
     private final ResourceService resourceService;
 
     public ResourceController(ResourceService resourceService) {
@@ -35,19 +34,19 @@ public class ResourceController {
     @PostMapping
     public ResponseEntity<CreateResourceResponse> createResource(
             @Valid @RequestBody CreateResourceRequest request) {
-        CreateResourceResponse response = resourceService.createResource(TEMP_USER_ID, request);
+        CreateResourceResponse response = resourceService.createResource(CurrentUser.requireUserId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
     public ResponseEntity<List<ResourceListItemResponse>> getResources() {
-        List<ResourceListItemResponse> responses = resourceService.getResources(TEMP_USER_ID);
+        List<ResourceListItemResponse> responses = resourceService.getResources(CurrentUser.requireUserId());
         return ResponseEntity.ok(responses);
     }
 
     @GetMapping("/{resourceId}")
     public ResponseEntity<ResourceWithProgressResponse> getResourceDetail(@PathVariable Long resourceId) {
-        ResourceWithProgressResponse response = resourceService.getResourceDetail(TEMP_USER_ID, resourceId);
+        ResourceWithProgressResponse response = resourceService.getResourceDetail(CurrentUser.requireUserId(), resourceId);
         return ResponseEntity.ok(response);
     }
 
@@ -55,13 +54,13 @@ public class ResourceController {
     public ResponseEntity<ResourceWithProgressResponse> updateResource(
             @PathVariable Long resourceId,
             @Valid @RequestBody UpdateResourceRequest request) {
-        ResourceWithProgressResponse response = resourceService.updateResource(TEMP_USER_ID, resourceId, request);
+        ResourceWithProgressResponse response = resourceService.updateResource(CurrentUser.requireUserId(), resourceId, request);
         return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/{resourceId}")
     public ResponseEntity<Void> deleteResource(@PathVariable Long resourceId) {
-        resourceService.deleteResource(TEMP_USER_ID, resourceId);
+        resourceService.deleteResource(CurrentUser.requireUserId(), resourceId);
         return ResponseEntity.noContent().build();
     }
 }

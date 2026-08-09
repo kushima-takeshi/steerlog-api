@@ -3,6 +3,7 @@ package com.steerlog.controller;
 import com.steerlog.dto.request.CreateStudyMemoRequest;
 import com.steerlog.dto.request.UpdateStudyMemoRequest;
 import com.steerlog.dto.response.StudyMemoResponse;
+import com.steerlog.security.CurrentUser;
 import com.steerlog.service.StudyMemoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -22,8 +23,6 @@ import java.util.List;
 @RequestMapping("/resources/{resourceId}/memos")
 public class StudyMemoController {
 
-    private static final Long TEMP_USER_ID = 1L;
-
     private final StudyMemoService studyMemoService;
 
     public StudyMemoController(StudyMemoService studyMemoService) {
@@ -34,13 +33,13 @@ public class StudyMemoController {
     public ResponseEntity<StudyMemoResponse> createMemo(
             @PathVariable Long resourceId,
             @Valid @RequestBody CreateStudyMemoRequest request) {
-        StudyMemoResponse response = studyMemoService.createMemo(TEMP_USER_ID, resourceId, request);
+        StudyMemoResponse response = studyMemoService.createMemo(CurrentUser.requireUserId(), resourceId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
     public ResponseEntity<List<StudyMemoResponse>> getMemos(@PathVariable Long resourceId) {
-        List<StudyMemoResponse> responses = studyMemoService.getMemos(TEMP_USER_ID, resourceId);
+        List<StudyMemoResponse> responses = studyMemoService.getMemos(CurrentUser.requireUserId(), resourceId);
         return ResponseEntity.ok(responses);
     }
 
@@ -48,7 +47,7 @@ public class StudyMemoController {
     public ResponseEntity<StudyMemoResponse> getMemo(
             @PathVariable Long resourceId,
             @PathVariable Long memoId) {
-        StudyMemoResponse response = studyMemoService.getMemo(TEMP_USER_ID, resourceId, memoId);
+        StudyMemoResponse response = studyMemoService.getMemo(CurrentUser.requireUserId(), resourceId, memoId);
         return ResponseEntity.ok(response);
     }
 
@@ -57,7 +56,7 @@ public class StudyMemoController {
             @PathVariable Long resourceId,
             @PathVariable Long memoId,
             @Valid @RequestBody UpdateStudyMemoRequest request) {
-        StudyMemoResponse response = studyMemoService.updateMemo(TEMP_USER_ID, resourceId, memoId, request);
+        StudyMemoResponse response = studyMemoService.updateMemo(CurrentUser.requireUserId(), resourceId, memoId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -65,7 +64,7 @@ public class StudyMemoController {
     public ResponseEntity<Void> deleteMemo(
             @PathVariable Long resourceId,
             @PathVariable Long memoId) {
-        studyMemoService.deleteMemo(TEMP_USER_ID, resourceId, memoId);
+        studyMemoService.deleteMemo(CurrentUser.requireUserId(), resourceId, memoId);
         return ResponseEntity.noContent().build();
     }
 }

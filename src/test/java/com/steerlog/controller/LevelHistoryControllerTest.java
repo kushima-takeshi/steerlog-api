@@ -4,6 +4,8 @@ import com.steerlog.dto.response.LevelHistoryResponse;
 import com.steerlog.entity.LevelHistoryReasonCode;
 import com.steerlog.entity.LevelHistorySourceType;
 import com.steerlog.exception.GlobalExceptionHandler;
+import com.steerlog.support.AuthenticatedControllerTestBase;
+import static com.steerlog.support.SecurityTestSupport.TEST_USER_ID;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.service.LevelHistoryService;
 import org.junit.jupiter.api.Test;
@@ -11,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -23,14 +24,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(LevelHistoryController.class)
+@WebMvcTest(controllers = LevelHistoryController.class)
 @Import(GlobalExceptionHandler.class)
-class LevelHistoryControllerTest {
+class LevelHistoryControllerTest extends AuthenticatedControllerTestBase {
 
-    private static final Long TEMP_USER_ID = 1L;
-
-    @Autowired
-    private MockMvc mockMvc;
 
     @MockitoBean
     private LevelHistoryService levelHistoryService;
@@ -48,7 +45,7 @@ class LevelHistoryControllerTest {
         response.setReasonCode(LevelHistoryReasonCode.INITIAL_STUDY_COMPLETED);
         response.setCreatedAt(now);
 
-        when(levelHistoryService.getLevelHistories(TEMP_USER_ID, resourceId))
+        when(levelHistoryService.getLevelHistories(TEST_USER_ID, resourceId))
                 .thenReturn(List.of(response));
 
         mockMvc.perform(get("/resources/{resourceId}/level-histories", resourceId))
@@ -59,14 +56,14 @@ class LevelHistoryControllerTest {
                 .andExpect(jsonPath("$[0].reasonCode").value("INITIAL_STUDY_COMPLETED"))
                 .andExpect(jsonPath("$[0].createdAt").value("2026-06-03T10:00:00Z"));
 
-        verify(levelHistoryService).getLevelHistories(TEMP_USER_ID, resourceId);
+        verify(levelHistoryService).getLevelHistories(TEST_USER_ID, resourceId);
     }
 
     @Test
     void getLevelHistories_shouldReturn200WithEmptyList() throws Exception {
         Long resourceId = 10L;
 
-        when(levelHistoryService.getLevelHistories(TEMP_USER_ID, resourceId))
+        when(levelHistoryService.getLevelHistories(TEST_USER_ID, resourceId))
                 .thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/resources/{resourceId}/level-histories", resourceId))
@@ -74,14 +71,14 @@ class LevelHistoryControllerTest {
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(0));
 
-        verify(levelHistoryService).getLevelHistories(TEMP_USER_ID, resourceId);
+        verify(levelHistoryService).getLevelHistories(TEST_USER_ID, resourceId);
     }
 
     @Test
     void getLevelHistories_shouldReturn404WhenResourceNotFound() throws Exception {
         Long resourceId = 10L;
 
-        when(levelHistoryService.getLevelHistories(TEMP_USER_ID, resourceId))
+        when(levelHistoryService.getLevelHistories(TEST_USER_ID, resourceId))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(get("/resources/{resourceId}/level-histories", resourceId))
@@ -89,6 +86,6 @@ class LevelHistoryControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(levelHistoryService).getLevelHistories(TEMP_USER_ID, resourceId);
+        verify(levelHistoryService).getLevelHistories(TEST_USER_ID, resourceId);
     }
 }
