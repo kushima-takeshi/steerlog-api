@@ -5,6 +5,8 @@ import com.steerlog.dto.request.CreateResourceSectionRequest;
 import com.steerlog.dto.request.UpdateResourceSectionRequest;
 import com.steerlog.dto.response.ResourceSectionResponse;
 import com.steerlog.exception.GlobalExceptionHandler;
+import com.steerlog.support.AuthenticatedControllerTestBase;
+import static com.steerlog.support.SecurityTestSupport.TEST_USER_ID;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.service.ResourceSectionService;
 import org.junit.jupiter.api.Test;
@@ -13,7 +15,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -32,14 +33,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(ResourceSectionController.class)
+@WebMvcTest(controllers = ResourceSectionController.class)
 @Import(GlobalExceptionHandler.class)
-class ResourceSectionControllerTest {
+class ResourceSectionControllerTest extends AuthenticatedControllerTestBase {
 
-    private static final Long TEMP_USER_ID = 1L;
-
-    @Autowired
-    private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -64,7 +61,7 @@ class ResourceSectionControllerTest {
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
 
-        when(resourceSectionService.createSection(eq(TEMP_USER_ID), eq(resourceId), any(CreateResourceSectionRequest.class)))
+        when(resourceSectionService.createSection(eq(TEST_USER_ID), eq(resourceId), any(CreateResourceSectionRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(post("/resources/{resourceId}/sections", resourceId)
@@ -75,7 +72,7 @@ class ResourceSectionControllerTest {
                 .andExpect(jsonPath("$.title").value("第1章"))
                 .andExpect(jsonPath("$.sectionOrder").value(1));
 
-        verify(resourceSectionService).createSection(eq(TEMP_USER_ID), eq(resourceId), any(CreateResourceSectionRequest.class));
+        verify(resourceSectionService).createSection(eq(TEST_USER_ID), eq(resourceId), any(CreateResourceSectionRequest.class));
     }
 
     @Test
@@ -91,7 +88,7 @@ class ResourceSectionControllerTest {
         response.setCreatedAt(now);
         response.setUpdatedAt(now);
 
-        when(resourceSectionService.getSections(TEMP_USER_ID, resourceId))
+        when(resourceSectionService.getSections(TEST_USER_ID, resourceId))
                 .thenReturn(List.of(response));
 
         mockMvc.perform(get("/resources/{resourceId}/sections", resourceId))
@@ -100,14 +97,14 @@ class ResourceSectionControllerTest {
                 .andExpect(jsonPath("$[0].title").value("第1章"))
                 .andExpect(jsonPath("$[0].sectionOrder").value(1));
 
-        verify(resourceSectionService).getSections(TEMP_USER_ID, resourceId);
+        verify(resourceSectionService).getSections(TEST_USER_ID, resourceId);
     }
 
     @Test
     void getSections_shouldReturn200WithEmptyList() throws Exception {
         Long resourceId = 10L;
 
-        when(resourceSectionService.getSections(TEMP_USER_ID, resourceId))
+        when(resourceSectionService.getSections(TEST_USER_ID, resourceId))
                 .thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/resources/{resourceId}/sections", resourceId))
@@ -115,7 +112,7 @@ class ResourceSectionControllerTest {
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(0));
 
-        verify(resourceSectionService).getSections(TEMP_USER_ID, resourceId);
+        verify(resourceSectionService).getSections(TEST_USER_ID, resourceId);
     }
 
     @Test
@@ -126,7 +123,7 @@ class ResourceSectionControllerTest {
         request.setTitle("第1章");
         request.setSectionOrder(1);
 
-        when(resourceSectionService.createSection(eq(TEMP_USER_ID), eq(resourceId), any(CreateResourceSectionRequest.class)))
+        when(resourceSectionService.createSection(eq(TEST_USER_ID), eq(resourceId), any(CreateResourceSectionRequest.class)))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(post("/resources/{resourceId}/sections", resourceId)
@@ -136,7 +133,7 @@ class ResourceSectionControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(resourceSectionService).createSection(eq(TEMP_USER_ID), eq(resourceId), any(CreateResourceSectionRequest.class));
+        verify(resourceSectionService).createSection(eq(TEST_USER_ID), eq(resourceId), any(CreateResourceSectionRequest.class));
     }
 
     @Test
@@ -158,7 +155,7 @@ class ResourceSectionControllerTest {
         response.setUpdatedAt(now);
 
         when(resourceSectionService.updateSection(
-                        eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
+                        eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
@@ -170,7 +167,7 @@ class ResourceSectionControllerTest {
                 .andExpect(jsonPath("$.sectionOrder").value(2));
 
         verify(resourceSectionService).updateSection(
-                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
+                eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
     }
 
     @Test
@@ -182,7 +179,7 @@ class ResourceSectionControllerTest {
         request.setTitle("更新後タイトル");
 
         when(resourceSectionService.updateSection(
-                        eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
+                        eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
@@ -193,7 +190,7 @@ class ResourceSectionControllerTest {
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
         verify(resourceSectionService).updateSection(
-                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
+                eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
     }
 
     @Test
@@ -205,7 +202,7 @@ class ResourceSectionControllerTest {
         request.setTitle("更新後タイトル");
 
         when(resourceSectionService.updateSection(
-                        eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
+                        eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
@@ -215,7 +212,7 @@ class ResourceSectionControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
 
         verify(resourceSectionService).updateSection(
-                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
+                eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
     }
 
     @Test
@@ -233,7 +230,7 @@ class ResourceSectionControllerTest {
         response.setUpdatedAt(now);
 
         when(resourceSectionService.updateSection(
-                        eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
+                        eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(patch("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId)
@@ -243,7 +240,7 @@ class ResourceSectionControllerTest {
                 .andExpect(jsonPath("$.sectionOrder").value(2));
 
         verify(resourceSectionService).updateSection(
-                eq(TEMP_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
+                eq(TEST_USER_ID), eq(resourceId), eq(sectionId), any(UpdateResourceSectionRequest.class));
     }
 
     @Test
@@ -284,12 +281,12 @@ class ResourceSectionControllerTest {
         Long resourceId = 10L;
         Long sectionId = 100L;
 
-        doNothing().when(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+        doNothing().when(resourceSectionService).deleteSection(TEST_USER_ID, resourceId, sectionId);
 
         mockMvc.perform(delete("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId))
                 .andExpect(status().isNoContent());
 
-        verify(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+        verify(resourceSectionService).deleteSection(TEST_USER_ID, resourceId, sectionId);
     }
 
     @Test
@@ -298,14 +295,14 @@ class ResourceSectionControllerTest {
         Long sectionId = 100L;
 
         doThrow(new ResourceNotFoundException("Resource not found"))
-                .when(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+                .when(resourceSectionService).deleteSection(TEST_USER_ID, resourceId, sectionId);
 
         mockMvc.perform(delete("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+        verify(resourceSectionService).deleteSection(TEST_USER_ID, resourceId, sectionId);
     }
 
     @Test
@@ -314,12 +311,12 @@ class ResourceSectionControllerTest {
         Long sectionId = 100L;
 
         doThrow(new ResourceNotFoundException("Resource not found"))
-                .when(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+                .when(resourceSectionService).deleteSection(TEST_USER_ID, resourceId, sectionId);
 
         mockMvc.perform(delete("/resources/{resourceId}/sections/{sectionId}", resourceId, sectionId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
 
-        verify(resourceSectionService).deleteSection(TEMP_USER_ID, resourceId, sectionId);
+        verify(resourceSectionService).deleteSection(TEST_USER_ID, resourceId, sectionId);
     }
 }

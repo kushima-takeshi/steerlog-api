@@ -2,6 +2,7 @@ package com.steerlog.controller;
 
 import com.steerlog.dto.request.UpdateSectionStudyStatusRequest;
 import com.steerlog.dto.response.SectionStudyStatusResponse;
+import com.steerlog.security.CurrentUser;
 import com.steerlog.service.SectionStudyStatusService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -16,8 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/resources/{resourceId}/sections/{sectionId}/study-status")
 public class SectionStudyStatusController {
 
-    private static final Long TEMP_USER_ID = 1L;
-
     private final SectionStudyStatusService sectionStudyStatusService;
 
     public SectionStudyStatusController(SectionStudyStatusService sectionStudyStatusService) {
@@ -29,7 +28,7 @@ public class SectionStudyStatusController {
             @PathVariable Long resourceId,
             @PathVariable Long sectionId) {
         SectionStudyStatusResponse response =
-                sectionStudyStatusService.getStudyStatus(TEMP_USER_ID, resourceId, sectionId);
+                sectionStudyStatusService.getStudyStatus(CurrentUser.requireUserId(), resourceId, sectionId);
         return ResponseEntity.ok(response);
     }
 
@@ -39,7 +38,7 @@ public class SectionStudyStatusController {
             @PathVariable Long sectionId,
             @Valid @RequestBody UpdateSectionStudyStatusRequest request) {
         SectionStudyStatusResponse response = sectionStudyStatusService.updateStudyStatus(
-                TEMP_USER_ID, resourceId, sectionId, request);
+                CurrentUser.requireUserId(), resourceId, sectionId, request);
         return ResponseEntity.ok(response);
     }
 }

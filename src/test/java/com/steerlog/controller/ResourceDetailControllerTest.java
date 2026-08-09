@@ -16,6 +16,8 @@ import com.steerlog.entity.ProgressStatus;
 import com.steerlog.entity.ResourceType;
 import com.steerlog.entity.StudyMemoType;
 import com.steerlog.exception.GlobalExceptionHandler;
+import com.steerlog.support.AuthenticatedControllerTestBase;
+import static com.steerlog.support.SecurityTestSupport.TEST_USER_ID;
 import com.steerlog.exception.ProgressNotFoundException;
 import com.steerlog.exception.ResourceNotFoundException;
 import com.steerlog.service.ResourceDetailService;
@@ -24,7 +26,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.List;
@@ -35,14 +36,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(ResourceDetailController.class)
+@WebMvcTest(controllers = ResourceDetailController.class)
 @Import(GlobalExceptionHandler.class)
-class ResourceDetailControllerTest {
+class ResourceDetailControllerTest extends AuthenticatedControllerTestBase {
 
-    private static final Long TEMP_USER_ID = 1L;
-
-    @Autowired
-    private MockMvc mockMvc;
 
     @MockitoBean
     private ResourceDetailService resourceDetailService;
@@ -107,7 +104,7 @@ class ResourceDetailControllerTest {
         response.setLevelHistories(List.of(levelHistory));
         response.setLearningSessionRecords(List.of(record));
 
-        when(resourceDetailService.getResourceDetails(TEMP_USER_ID, resourceId)).thenReturn(response);
+        when(resourceDetailService.getResourceDetails(TEST_USER_ID, resourceId)).thenReturn(response);
 
         mockMvc.perform(get("/resources/{resourceId}/details", resourceId))
                 .andExpect(status().isOk())
@@ -125,14 +122,14 @@ class ResourceDetailControllerTest {
                 .andExpect(jsonPath("$.learningSessionRecords[0].learningSessionRecordId").value(400))
                 .andExpect(jsonPath("$.learningSessionRecords[0].conceptTags[0]").value("REST"));
 
-        verify(resourceDetailService).getResourceDetails(TEMP_USER_ID, resourceId);
+        verify(resourceDetailService).getResourceDetails(TEST_USER_ID, resourceId);
     }
 
     @Test
     void getResourceDetails_shouldReturn404WhenResourceNotFound() throws Exception {
         Long resourceId = 10L;
 
-        when(resourceDetailService.getResourceDetails(TEMP_USER_ID, resourceId))
+        when(resourceDetailService.getResourceDetails(TEST_USER_ID, resourceId))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(get("/resources/{resourceId}/details", resourceId))
@@ -140,14 +137,14 @@ class ResourceDetailControllerTest {
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
-        verify(resourceDetailService).getResourceDetails(TEMP_USER_ID, resourceId);
+        verify(resourceDetailService).getResourceDetails(TEST_USER_ID, resourceId);
     }
 
     @Test
     void getResourceDetails_shouldReturn404WhenProgressNotFound() throws Exception {
         Long resourceId = 10L;
 
-        when(resourceDetailService.getResourceDetails(TEMP_USER_ID, resourceId))
+        when(resourceDetailService.getResourceDetails(TEST_USER_ID, resourceId))
                 .thenThrow(new ProgressNotFoundException("Progress not found"));
 
         mockMvc.perform(get("/resources/{resourceId}/details", resourceId))
@@ -155,6 +152,6 @@ class ResourceDetailControllerTest {
                 .andExpect(jsonPath("$.code").value("PROGRESS_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Progress not found"));
 
-        verify(resourceDetailService).getResourceDetails(TEMP_USER_ID, resourceId);
+        verify(resourceDetailService).getResourceDetails(TEST_USER_ID, resourceId);
     }
 }

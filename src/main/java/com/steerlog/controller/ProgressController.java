@@ -2,6 +2,7 @@ package com.steerlog.controller;
 
 import com.steerlog.dto.request.UpdateProgressRequest;
 import com.steerlog.dto.response.ProgressResponse;
+import com.steerlog.security.CurrentUser;
 import com.steerlog.service.ProgressService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -17,8 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/resources/{resourceId}/progress")
 public class ProgressController {
 
-    private static final Long TEMP_USER_ID = 1L;
-
     private final ProgressService progressService;
 
     public ProgressController(ProgressService progressService) {
@@ -27,7 +26,7 @@ public class ProgressController {
 
     @GetMapping
     public ResponseEntity<ProgressResponse> getProgress(@PathVariable Long resourceId) {
-        ProgressResponse response = progressService.getProgress(TEMP_USER_ID, resourceId);
+        ProgressResponse response = progressService.getProgress(CurrentUser.requireUserId(), resourceId);
         return ResponseEntity.ok(response);
     }
 
@@ -35,13 +34,13 @@ public class ProgressController {
     public ResponseEntity<ProgressResponse> updateProgress(
             @PathVariable Long resourceId,
             @Valid @RequestBody UpdateProgressRequest request) {
-        ProgressResponse response = progressService.updateProgress(TEMP_USER_ID, resourceId, request);
+        ProgressResponse response = progressService.updateProgress(CurrentUser.requireUserId(), resourceId, request);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/complete-initial-study")
     public ResponseEntity<ProgressResponse> completeInitialStudy(@PathVariable Long resourceId) {
-        ProgressResponse response = progressService.completeInitialStudy(TEMP_USER_ID, resourceId);
+        ProgressResponse response = progressService.completeInitialStudy(CurrentUser.requireUserId(), resourceId);
         return ResponseEntity.ok(response);
     }
 }

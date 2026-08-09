@@ -16,6 +16,8 @@ import com.steerlog.entity.LearningSessionAiAssessment;
 import com.steerlog.entity.LearningSessionStatus;
 import com.steerlog.entity.LearningSessionType;
 import com.steerlog.exception.GlobalExceptionHandler;
+import com.steerlog.support.AuthenticatedControllerTestBase;
+import static com.steerlog.support.SecurityTestSupport.TEST_USER_ID;
 import com.steerlog.exception.LearningSessionCannotAcceptResponseException;
 import com.steerlog.exception.LearningSessionCannotBeCompletedException;
 import com.steerlog.exception.LearningSessionCannotBeDiscardedException;
@@ -29,7 +31,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.List;
@@ -42,14 +43,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(LearningSessionController.class)
+@WebMvcTest(controllers = LearningSessionController.class)
 @Import(GlobalExceptionHandler.class)
-class LearningSessionControllerTest {
+class LearningSessionControllerTest extends AuthenticatedControllerTestBase {
 
-    private static final Long TEMP_USER_ID = 1L;
-
-    @Autowired
-    private MockMvc mockMvc;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -84,7 +81,7 @@ class LearningSessionControllerTest {
         response.setStartedAt(startedAt);
 
         when(learningSessionService.startSession(
-                eq(TEMP_USER_ID), eq(resourceId), any(StartLearningSessionRequest.class)))
+                eq(TEST_USER_ID), eq(resourceId), any(StartLearningSessionRequest.class)))
                 .thenReturn(response);
 
         mockMvc.perform(post("/resources/{resourceId}/learning-sessions", resourceId)
@@ -104,7 +101,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.startedAt").value("2026-06-08T10:00:00Z"));
 
         verify(learningSessionService).startSession(
-                eq(TEMP_USER_ID), eq(resourceId), any(StartLearningSessionRequest.class));
+                eq(TEST_USER_ID), eq(resourceId), any(StartLearningSessionRequest.class));
     }
 
     @Test
@@ -125,7 +122,7 @@ class LearningSessionControllerTest {
         request.setSessionType(LearningSessionType.IMMEDIATE_REFLECTION);
 
         when(learningSessionService.startSession(
-                eq(TEMP_USER_ID), eq(resourceId), any(StartLearningSessionRequest.class)))
+                eq(TEST_USER_ID), eq(resourceId), any(StartLearningSessionRequest.class)))
                 .thenThrow(new ResourceNotFoundException("Resource not found"));
 
         mockMvc.perform(post("/resources/{resourceId}/learning-sessions", resourceId)
@@ -136,7 +133,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.message").value("Resource not found"));
 
         verify(learningSessionService).startSession(
-                eq(TEMP_USER_ID), eq(resourceId), any(StartLearningSessionRequest.class));
+                eq(TEST_USER_ID), eq(resourceId), any(StartLearningSessionRequest.class));
     }
 
     @Test
@@ -152,7 +149,7 @@ class LearningSessionControllerTest {
         response.setStatus(LearningSessionStatus.DISCARDED);
         response.setUpdatedAt(updatedAt);
 
-        when(learningSessionService.discardSession(TEMP_USER_ID, resourceId, learningSessionId))
+        when(learningSessionService.discardSession(TEST_USER_ID, resourceId, learningSessionId))
                 .thenReturn(response);
 
         mockMvc.perform(post(
@@ -165,7 +162,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.status").value("DISCARDED"))
                 .andExpect(jsonPath("$.updatedAt").value("2026-06-08T12:00:00Z"));
 
-        verify(learningSessionService).discardSession(TEMP_USER_ID, resourceId, learningSessionId);
+        verify(learningSessionService).discardSession(TEST_USER_ID, resourceId, learningSessionId);
     }
 
     @Test
@@ -173,7 +170,7 @@ class LearningSessionControllerTest {
         Long resourceId = 10L;
         Long learningSessionId = 700L;
 
-        when(learningSessionService.discardSession(TEMP_USER_ID, resourceId, learningSessionId))
+        when(learningSessionService.discardSession(TEST_USER_ID, resourceId, learningSessionId))
                 .thenThrow(new LearningSessionNotFoundException("Learning session not found"));
 
         mockMvc.perform(post(
@@ -183,7 +180,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.code").value("LEARNING_SESSION_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Learning session not found"));
 
-        verify(learningSessionService).discardSession(TEMP_USER_ID, resourceId, learningSessionId);
+        verify(learningSessionService).discardSession(TEST_USER_ID, resourceId, learningSessionId);
     }
 
     @Test
@@ -191,7 +188,7 @@ class LearningSessionControllerTest {
         Long resourceId = 10L;
         Long learningSessionId = 700L;
 
-        when(learningSessionService.discardSession(TEMP_USER_ID, resourceId, learningSessionId))
+        when(learningSessionService.discardSession(TEST_USER_ID, resourceId, learningSessionId))
                 .thenThrow(new LearningSessionCannotBeDiscardedException("Learning session cannot be discarded"));
 
         mockMvc.perform(post(
@@ -201,7 +198,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.code").value("LEARNING_SESSION_CANNOT_BE_DISCARDED"))
                 .andExpect(jsonPath("$.message").value("Learning session cannot be discarded"));
 
-        verify(learningSessionService).discardSession(TEMP_USER_ID, resourceId, learningSessionId);
+        verify(learningSessionService).discardSession(TEST_USER_ID, resourceId, learningSessionId);
     }
 
     @Test
@@ -232,7 +229,7 @@ class LearningSessionControllerTest {
         response.setUpdatedAt(updatedAt);
 
         when(learningSessionService.submitResponse(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SubmitLearningSessionResponseRequest.class)))
                 .thenReturn(response);
 
@@ -255,7 +252,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.updatedAt").value("2026-06-08T12:00:00Z"));
 
         verify(learningSessionService).submitResponse(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SubmitLearningSessionResponseRequest.class));
     }
 
@@ -281,7 +278,7 @@ class LearningSessionControllerTest {
         request.setResponseText("回答本文");
 
         when(learningSessionService.submitResponse(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SubmitLearningSessionResponseRequest.class)))
                 .thenThrow(new LearningSessionNotFoundException("Learning session not found"));
 
@@ -295,7 +292,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.message").value("Learning session not found"));
 
         verify(learningSessionService).submitResponse(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SubmitLearningSessionResponseRequest.class));
     }
 
@@ -308,7 +305,7 @@ class LearningSessionControllerTest {
         request.setResponseText("回答本文");
 
         when(learningSessionService.submitResponse(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SubmitLearningSessionResponseRequest.class)))
                 .thenThrow(new LearningSessionCannotAcceptResponseException(
                         "Learning session cannot accept response"));
@@ -323,7 +320,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.message").value("Learning session cannot accept response"));
 
         verify(learningSessionService).submitResponse(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SubmitLearningSessionResponseRequest.class));
     }
 
@@ -353,7 +350,7 @@ class LearningSessionControllerTest {
         response.setNextAction(nextAction);
         response.setCompletedAt(completedAt);
 
-        when(learningSessionService.completeSession(TEMP_USER_ID, resourceId, learningSessionId))
+        when(learningSessionService.completeSession(TEST_USER_ID, resourceId, learningSessionId))
                 .thenReturn(response);
 
         mockMvc.perform(post(
@@ -379,7 +376,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.nextAction.type").value("SAVE_RECORD"))
                 .andExpect(jsonPath("$.completedAt").value("2026-06-08T13:00:00Z"));
 
-        verify(learningSessionService).completeSession(TEMP_USER_ID, resourceId, learningSessionId);
+        verify(learningSessionService).completeSession(TEST_USER_ID, resourceId, learningSessionId);
     }
 
     @Test
@@ -387,7 +384,7 @@ class LearningSessionControllerTest {
         Long resourceId = 10L;
         Long learningSessionId = 900L;
 
-        when(learningSessionService.completeSession(TEMP_USER_ID, resourceId, learningSessionId))
+        when(learningSessionService.completeSession(TEST_USER_ID, resourceId, learningSessionId))
                 .thenThrow(new LearningSessionNotFoundException("Learning session not found"));
 
         mockMvc.perform(post(
@@ -397,7 +394,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.code").value("LEARNING_SESSION_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Learning session not found"));
 
-        verify(learningSessionService).completeSession(TEMP_USER_ID, resourceId, learningSessionId);
+        verify(learningSessionService).completeSession(TEST_USER_ID, resourceId, learningSessionId);
     }
 
     @Test
@@ -405,7 +402,7 @@ class LearningSessionControllerTest {
         Long resourceId = 10L;
         Long learningSessionId = 900L;
 
-        when(learningSessionService.completeSession(TEMP_USER_ID, resourceId, learningSessionId))
+        when(learningSessionService.completeSession(TEST_USER_ID, resourceId, learningSessionId))
                 .thenThrow(new LearningSessionCannotBeCompletedException("Learning session cannot be completed"));
 
         mockMvc.perform(post(
@@ -415,7 +412,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.code").value("LEARNING_SESSION_CANNOT_BE_COMPLETED"))
                 .andExpect(jsonPath("$.message").value("Learning session cannot be completed"));
 
-        verify(learningSessionService).completeSession(TEMP_USER_ID, resourceId, learningSessionId);
+        verify(learningSessionService).completeSession(TEST_USER_ID, resourceId, learningSessionId);
     }
 
     @Test
@@ -444,7 +441,7 @@ class LearningSessionControllerTest {
         response.setCreatedAt(createdAt);
 
         when(learningSessionService.saveRecord(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SaveLearningSessionRecordRequest.class)))
                 .thenReturn(response);
 
@@ -468,7 +465,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.createdAt").value("2026-06-08T14:00:00Z"));
 
         verify(learningSessionService).saveRecord(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SaveLearningSessionRecordRequest.class));
     }
 
@@ -508,7 +505,7 @@ class LearningSessionControllerTest {
         request.setAiAssessment(LearningSessionAiAssessment.PASSED);
 
         when(learningSessionService.saveRecord(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SaveLearningSessionRecordRequest.class)))
                 .thenThrow(new LearningSessionNotFoundException("Learning session not found"));
 
@@ -522,7 +519,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.message").value("Learning session not found"));
 
         verify(learningSessionService).saveRecord(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SaveLearningSessionRecordRequest.class));
     }
 
@@ -536,7 +533,7 @@ class LearningSessionControllerTest {
         request.setAiAssessment(LearningSessionAiAssessment.PASSED);
 
         when(learningSessionService.saveRecord(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SaveLearningSessionRecordRequest.class)))
                 .thenThrow(new LearningSessionRecordCannotBeSavedException(
                         "Learning session record cannot be saved"));
@@ -551,7 +548,7 @@ class LearningSessionControllerTest {
                 .andExpect(jsonPath("$.message").value("Learning session record cannot be saved"));
 
         verify(learningSessionService).saveRecord(
-                eq(TEMP_USER_ID), eq(resourceId), eq(learningSessionId),
+                eq(TEST_USER_ID), eq(resourceId), eq(learningSessionId),
                 any(SaveLearningSessionRecordRequest.class));
     }
 }
