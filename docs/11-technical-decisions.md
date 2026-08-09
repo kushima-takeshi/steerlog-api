@@ -185,6 +185,37 @@ LearningCycle / 再学習軸
 
 ---
 
+## 6. 不正リクエストが 401 にすり替わる（2026-08）
+
+### Context
+
+JWT 認証導入後の手動確認で、`POST /resources/{id}/memos` に不正な JSON（例: 存在しない `memoType`）を送ると、期待する 400 ではなく **401 `UNAUTHORIZED`** が返った。  
+同じトークンで正しい body なら 201、`GET /auth/me` も 200 になるため、JWT 自体の検証失敗ではない。
+
+### Decision（現状の暫定）
+
+- 現状は未修正のまま既知課題として残す
+- 正しい Request DTO（`memoType` enum / `content` 等）を送れば業務 API は動作する
+- 原因の有力候補: JSON 変換失敗（`HttpMessageNotReadableException`）後の `/error` ディスパッチが `anyRequest().authenticated()` に引っかかり、`JsonAuthenticationEntryPoint` が 401 を返す
+
+### Consequences
+
+- クライアントから見ると「トークン不正」と「リクエスト不正」が区別しづらい
+- 不正 enum・型不一致などの入力ミスが、400 ではなく 401 に見える
+- フロントのデバッグや手動確認で混乱しやすい
+
+### Future
+
+- `GlobalExceptionHandler` で `HttpMessageNotReadableException` / `MethodArgumentNotValidException` を捕捉し、400 + 明確な `code` を返す
+- `SecurityConfig` で `/error` を `permitAll()` にする（または同等のエラー経路を認証不要にする）
+- 必要なら不正 enum のメッセージをレスポンスに含める
+- 着手時に GitHub Issue を切る（または本節へ Issue URL を追記する）
+- Issue: https://github.com/kushima-takeshi/steerlog-api/issues/56
+
+関連: [`SecurityConfig`](src/main/java/com/steerlog/config/SecurityConfig.java)、[`JsonAuthenticationEntryPoint`](src/main/java/com/steerlog/security/JsonAuthenticationEntryPoint.java)、[`CreateStudyMemoRequest`](src/main/java/com/steerlog/dto/request/CreateStudyMemoRequest.java)
+
+---
+
 # 運用
 
 - 新しいトレードオフや暫定実装が出たら、このファイルに節を足す
