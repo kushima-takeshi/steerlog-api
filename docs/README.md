@@ -28,6 +28,7 @@ docs/
   09-manual-api-check.md
   10-resource-detail-design.md
   11-technical-decisions.md
+  12-frontend-plan.md
 
 docs/archive/
   README.md
@@ -265,6 +266,25 @@ register の制約違反ハンドリング
 
 仕様の詳細は 01〜10、作業は Issue、決定と改善点はこのファイル。  
 実装・レビュー時に「なぜこうなっているか」を確認するときに読ませる。
+
+---
+
+## 12-frontend-plan.md
+
+フロントエンド実装の進め方・現在地・次にやることをまとめる。
+
+主な内容：
+
+```text
+React + Vite 前提
+Phase 0〜5 の段階計画
+最初のゴール（登録→ログイン→一覧→作成）
+Now / Next / Later
+AI への依頼の仕方
+```
+
+フロント作業を始めるとき、または次に何をするか迷ったときに読ませる。  
+チャットの計画はここに残す。
 
 ---
 

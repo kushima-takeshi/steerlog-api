@@ -165,6 +165,7 @@ mvn test
 - [docs/09-manual-api-check.md](docs/09-manual-api-check.md) - 手動 API 確認
 - [docs/10-resource-detail-design.md](docs/10-resource-detail-design.md) - Resource Detail API 設計
 - [docs/11-technical-decisions.md](docs/11-technical-decisions.md) - 技術決定・既知の制約・改善点
+- [docs/12-frontend-plan.md](docs/12-frontend-plan.md) - フロントエンド実装計画
 
 ---
 
