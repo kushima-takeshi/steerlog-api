@@ -88,7 +88,7 @@ Phase 8: Resource Detail 統合詳細
 
 # 3. Phase 1：プロジェクト土台
 
-**状態: ✅ 完了**（認証は未実装）
+**状態: ✅ 完了**（JWT 認証は後続で導入済み。`CurrentUser.requireUserId()` を使用）
 
 ## 3.1 目的
 
@@ -108,10 +108,18 @@ Flyway
 
 ## 3.3 認証について
 
-MVP初期では、認証を作り込まない。  
-仮に `userId = 1` 固定でもよい。
+初期は認証を作り込まず `userId = 1` 固定で進めた。  
+2026-08 時点では自己ホスト JWT（Bearer）を導入済み。
 
-ただし、Service/Repositoryでは必ず `user_id` を検索条件に含める。
+```text
+POST /auth/register
+POST /auth/login
+GET  /auth/me
+```
+
+Controller は `CurrentUser.requireUserId()`、Service / Repository は必ず `user_id` を検索条件に含める。
+
+詳細: `docs/11-technical-decisions.md` §2
 
 ---
 
@@ -571,7 +579,9 @@ MVP コア（Lv.1〜Lv.3 + LearningSession + Resource Detail 統合詳細）は�
 README.md の「未実装 / Next（MVP 内）」と整合：
 
 ```text
-認証
+リフレッシュトークン
+パスワードリセット
+OAuth / OIDC
 ```
 
 ## 13.3 MVP 外（まだ作らない）

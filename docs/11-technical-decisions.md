@@ -65,29 +65,36 @@ StudyMemo の `tags` も同様の軽量が求められ、タグ正規化テー�
 
 ---
 
-## 2. 認証未実装: TEMP_USER_ID 固定（2026-07）
+## 2. 認証: 自己ホスト JWT（Bearer）（2026-08）
 
 ### Context
 
-MVP ではまず学習証跡の縦切りを優先した。認可・ログインより Resource / Progress / Session の流れを先に固める判断。
+初期 MVP では学習証跡の縦切りを優先し、Controller は `TEMP_USER_ID = 1L` 固定だった。  
+フロントは React SPA を想定し、自己ホストのメール／パスワード + Bearer JWT で認証を導入する。
 
 ### Decision
 
-- 認証は未実装
-- Controller では `TEMP_USER_ID = 1L` 固定で user を扱う
-- テーブルには `user_id` を持ち、将来の認可に備える
+- `users` テーブル（V11）で email / password_hash を管理
+- `POST /auth/register`・`POST /auth/login` で JWT を発行（`Authorization: Bearer`）
+- `GET /auth/me` および業務 API は認証必須
+- Controller は `CurrentUser.requireUserId()` でログイン中ユーザーを取得
+- 既存業務テーブルの `user_id` への FK はまだ張らない（所有者チェックは Service 側）
+- リフレッシュトークン・パスワードリセット・OAuth/OIDC は MVP 外
 
 ### Consequences
 
-- マルチユーザーでは使えない
-- 認可バグが本番相当では致命傷になる（現状は単一ユーザー前提）
+- トークンなしの業務 API は 401
+- JWT はステートレスのため、発行後の即時失効は未対応（有効期限切れまで有効）
+- JWT secret は環境変数 `STEERLOG_JWT_SECRET` で上書きする前提（開発用デフォルトあり）
 
 ### Future
 
-- 認証・認可の導入（MVP Next）
-- 導入後も「自分の Resource 以外は触れない」チェックは必須（`06-implementation-rules`）
+- リフレッシュトークン / 短い access token
+- パスワードリセット
+- OAuth / OIDC
+- 必要なら業務テーブルから `users` への FK 追加
 
-関連: ルート `README.md`、`docs/06-implementation-rules.md`
+関連: ルート `README.md`、`docs/03-api-design.md`、`docs/06-implementation-rules.md`、`SecurityConfig`
 
 ---
 

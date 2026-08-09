@@ -256,9 +256,10 @@ MVP の技術的な決定・既知の制約・改善点をまとめる。
 
 ```text
 タグ保存形式（List / TEXT カンマ）
-認証未実装（TEMP_USER_ID）
+JWT 認証（Bearer）導入
 important を持たせない
 MVP 外の改善候補
+register の制約違反ハンドリング
 ```
 
 仕様の詳細は 01〜10、作業は Issue、決定と改善点はこのファイル。  

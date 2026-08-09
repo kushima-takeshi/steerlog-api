@@ -35,7 +35,7 @@ GET /resources/{resourceId}/details
 |------|------|
 | メソッド | GET |
 | パス | `/resources/{resourceId}/details` |
-| 認証 | 未実装。他 API と同様、Controller では `TEMP_USER_ID = 1L` 固定 |
+| 認証 | Bearer JWT 必須。他 API と同様、`CurrentUser.requireUserId()` でログイン中ユーザーを取得 |
 | レスポンス | `200 OK` + 統合詳細 JSON |
 | 性質 | 参照系のみ（DB 更新なし） |
 
