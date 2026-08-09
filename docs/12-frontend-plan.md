@@ -41,6 +41,8 @@ JWT は Authorization: Bearer
 ```text
 フロント: https://github.com/kushima-takeshi/steerlog-web（ローカル: Desktop/steerlog-web）
 API:      https://github.com/kushima-takeshi/steerlog-api
+
+※ Phase 0 の Vite 雛形は入れず、自分で作成する前提
 ```
 
 ---
@@ -72,8 +74,8 @@ OAuth / ソーシャルログイン
 ```text
 [x] バックエンド JWT 認証
 [x] 手動 API 確認（認証付き）
-[x] フロントリポジトリ作成（steerlog-web）
-[x] Phase 0: Vite + React + TS（localhost:5173）
+[x] フロント用 GitHub リポジトリ作成（steerlog-web・空 + README）
+[ ] Phase 0: Vite + React + TS（自分で作成）
 [ ] API 疎通（トークン手貼りでも可）
 [ ] 登録 / ログイン画面
 [ ] リソース一覧
@@ -211,15 +213,16 @@ Phase 3〜4 が安定してから着手する。
 ## Now（次に着手）
 
 ```text
-1. Phase 1: API 疎通（JWT 手貼りでも可）
-2. 環境変数 VITE_API_BASE_URL で API を叩く
+1. Phase 0 を自分で進める（steerlog-web の README 参照）
+2. Vite + React + TS で localhost:5173 を確認する
 ```
 
 ## Next
 
 ```text
-Phase 2 認証（登録 / ログイン / Bearer 付与）
-Phase 3 一覧 + 作成
+Phase 1: API 疎通
+Phase 2: 認証
+Phase 3: 一覧 + 作成
 ```
 
 ## Later
