@@ -91,6 +91,8 @@ OAuth / ソーシャルログイン
 [x] リソース作成
 [x] リソース詳細
 [x] 学習フロー（振り返り）
+[ ] Phase 6: 画面分割（React Router）
+[ ] Phase 7: UI 改善（モック）
 ```
 
 ---
@@ -215,6 +217,105 @@ POST .../learning-sessions/{id}/record
 
 Phase 3〜4 が安定してから着手する。
 
+完了条件:
+
+- IMMEDIATE_REFLECTION で start → responses（2回）→ complete → record まで通せる
+- 詳細再取得で learningSessionRecords に反映される
+
+**Phase 0〜5 完了時点: API 縦切りは一通り動く（1画面に集約されたプロトタイプ）。**
+
+## Phase 6: 画面分割（React Router）
+
+目標:
+
+```text
+App.tsx 1枚集約をやめ、URL 単位で画面を分ける
+既存機能は壊さず、1ステップずつ移行する
+```
+
+方針:
+
+```text
+UI 改善の前に Router で分割する（後から分割すると手戻りが大きい）
+最初は JSON 表示のままでよい（見た目は Phase 7）
+```
+
+ルート案:
+
+```text
+/login                          … 登録 / ログイン
+/resources                      … 教材一覧 + 作成
+/resources/:resourceId          … 統合詳細
+/resources/:resourceId/reflection … 振り返りフロー（start → responses → complete → record）
+```
+
+Step 計画（1 Step 完了ごとに動作確認 → コミット）:
+
+```text
+Step 1: react-router-dom 導入。/ と /login の2ルート（/ は現状 UI を HomePage に移す）
+Step 2: ログイン / 登録を LoginPage へ。未ログイン時は /login へ
+Step 3: 一覧 + 作成を /resources へ
+Step 4: 詳細を /resources/:resourceId へ
+Step 5: 振り返りを /resources/:resourceId/reflection へ
+Step 6: 不要な Vite テンプレート UI を削除、共通レイアウト（任意）
+```
+
+完了条件:
+
+- 上記 URL で従来と同等の API 操作ができる
+- `App.tsx` は Routes 定義中心（各ページは `src/pages/` 等に分割）
+- 401 時は `/login` へ戻れる
+
+参照モック（画面対応）:
+
+```text
+01-resource-list.png      → /resources
+02-resource-detail.png    → /resources/:resourceId
+03〜06-reflection-*.png   → /resources/:resourceId/reflection
+```
+
+## Phase 7: UI 改善（モックに近づける）
+
+目標:
+
+```text
+Phase 6 で分けた各画面を、ルート README の UI モックに近づける
+```
+
+方針:
+
+```text
+1画面ずつ（モック1枚ずつ）進める
+CSS は App.css 拡張でもコンポーネント単位でも可
+デザインシステムの本格導入はしない
+```
+
+Step 計画:
+
+```text
+Step 1: /resources（一覧）
+Step 2: /resources/:resourceId（詳細）
+Step 3: 振り返り開始（03）
+Step 4: 回答（04）
+Step 5: 確認（05）
+Step 6: 完了（06）
+```
+
+完了条件:
+
+- 主要画面がモックと同じ情報ブロックを表示する（Progress、セクション、振り返り証跡など）
+- 操作フローがモック通りに辿れる
+
+## Phase 8: UX・エラー・拡張（任意）
+
+```text
+API エラー（409 SESSION_ALREADY_IN_PROGRESS 等）を画面に表示
+discard UI
+DELAYED_RECALL フロー
+Issue #56 対応（空 title が 401）
+非 401 エラーの res.ok チェック
+```
+
 ---
 
 # 5. 今やること / 次やること
@@ -222,22 +323,23 @@ Phase 3〜4 が安定してから着手する。
 ## Now（次に着手）
 
 ```text
-UI の見た目改善（モックに近づける）
+Phase 6 Step 1: react-router-dom 導入（/ と /login、既存 UI は / に維持）
 ```
 
 ## Next
 
 ```text
-React Router 本格導入
-画面分割（ログイン / 一覧 / 詳細 / 学習フロー）
+Phase 6 Step 2〜5: 画面を URL ごとに分割
+Phase 7: モックに沿った UI 改善（1画面ずつ）
 ```
 
 ## Later
 
 ```text
-DELAYED_RECALL フロー
-discard UI
+Phase 8: discard / DELAYED_RECALL / エラー表示改善
 Issue #56（不正 body が 401）— Phase 3 で Title 空時にフロント開発で遭遇
+音声入力（モックにあるが MVP 外）
+状態管理ライブラリ（必要になってから）
 ```
 
 ---
@@ -254,7 +356,7 @@ Issue #56（不正 body が 401）— Phase 3 で Title 空時にフロント開
 Cursor への依頼例:
 
 ```text
-docs/12-frontend-plan.md を読んで、Phase 5 だけ進めて。
+docs/12-frontend-plan.md を読んで、Phase 6 Step 1 だけ進めて。
 スコープを広げないで。
 ```
 
