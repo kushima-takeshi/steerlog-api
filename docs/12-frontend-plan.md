@@ -46,9 +46,10 @@ API:      https://github.com/kushima-takeshi/steerlog-api
 フロント実装状況（2026-08-11）:
 
 ```text
-Phase 0〜2 完了（steerlog-web PR #2 相当）
+Phase 0〜3 完了（steerlog-web PR #3 相当）
 - Vite + React + TS、.env、API Base URL
 - 登録 / ログイン、localStorage JWT、fetchWithAuth
+- GET/POST /resources（教材一覧 + 作成）
 ```
 
 ---
@@ -84,8 +85,8 @@ OAuth / ソーシャルログイン
 [x] Phase 0: Vite + React + TS
 [x] API 疎通（トークン手貼りでも可）
 [x] 登録 / ログイン画面
-[ ] リソース一覧
-[ ] リソース作成
+[x] リソース一覧
+[x] リソース作成
 [ ] リソース詳細
 [ ] 学習フロー（振り返り）
 ```
@@ -219,13 +220,12 @@ Phase 3〜4 が安定してから着手する。
 ## Now（次に着手）
 
 ```text
-Phase 3: 教材一覧 + 作成（GET/POST /resources）
+Phase 4: リソース詳細（GET /resources/{resourceId}/details）
 ```
 
 ## Next
 
 ```text
-Phase 4: リソース詳細
 Phase 5: 学習フロー
 ```
 
@@ -234,7 +234,7 @@ Phase 5: 学習フロー
 ```text
 UI の見た目改善
 React Router 本格導入
-Issue #56（不正 body が 401）がフロント開発中に邪魔なら API 側で修正
+Issue #56（不正 body が 401）— Phase 3 で Title 空時にフロント開発で遭遇
 ```
 
 ---
@@ -251,7 +251,7 @@ Issue #56（不正 body が 401）がフロント開発中に邪魔なら API �
 Cursor への依頼例:
 
 ```text
-docs/12-frontend-plan.md を読んで、Phase 3 だけ進めて。
+docs/12-frontend-plan.md を読んで、Phase 4 だけ進めて。
 スコープを広げないで。
 ```
 
