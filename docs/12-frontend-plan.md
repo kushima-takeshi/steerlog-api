@@ -41,8 +41,14 @@ JWT は Authorization: Bearer
 ```text
 フロント: https://github.com/kushima-takeshi/steerlog-web（ローカル: Desktop/steerlog-web）
 API:      https://github.com/kushima-takeshi/steerlog-api
+```
 
-※ Phase 0 の Vite 雛形は入れず、自分で作成する前提
+フロント実装状況（2026-08-11）:
+
+```text
+Phase 0〜2 完了（steerlog-web PR #2 相当）
+- Vite + React + TS、.env、API Base URL
+- 登録 / ログイン、localStorage JWT、fetchWithAuth
 ```
 
 ---
@@ -69,15 +75,15 @@ OAuth / ソーシャルログイン
 
 ---
 
-# 3. 現在地（2026-08-09）
+# 3. 現在地（2026-08-11）
 
 ```text
 [x] バックエンド JWT 認証
 [x] 手動 API 確認（認証付き）
-[x] フロント用 GitHub リポジトリ作成（steerlog-web・空 + README）
-[ ] Phase 0: Vite + React + TS（自分で作成）
-[ ] API 疎通（トークン手貼りでも可）
-[ ] 登録 / ログイン画面
+[x] フロント用 GitHub リポジトリ作成（steerlog-web）
+[x] Phase 0: Vite + React + TS
+[x] API 疎通（トークン手貼りでも可）
+[x] 登録 / ログイン画面
 [ ] リソース一覧
 [ ] リソース作成
 [ ] リソース詳細
@@ -213,24 +219,21 @@ Phase 3〜4 が安定してから着手する。
 ## Now（次に着手）
 
 ```text
-1. Phase 0 を自分で進める（steerlog-web の README 参照）
-2. Vite + React + TS で localhost:5173 を確認する
+Phase 3: 教材一覧 + 作成（GET/POST /resources）
 ```
 
 ## Next
 
 ```text
-Phase 1: API 疎通
-Phase 2: 認証
-Phase 3: 一覧 + 作成
+Phase 4: リソース詳細
+Phase 5: 学習フロー
 ```
 
 ## Later
 
 ```text
-Phase 4 詳細
-Phase 5 学習フロー
 UI の見た目改善
+React Router 本格導入
 Issue #56（不正 body が 401）がフロント開発中に邪魔なら API 側で修正
 ```
 
@@ -248,7 +251,7 @@ Issue #56（不正 body が 401）がフロント開発中に邪魔なら API �
 Cursor への依頼例:
 
 ```text
-docs/12-frontend-plan.md を読んで、Phase 0 だけ進めて。
+docs/12-frontend-plan.md を読んで、Phase 3 だけ進めて。
 スコープを広げないで。
 ```
 
