@@ -46,11 +46,12 @@ API:      https://github.com/kushima-takeshi/steerlog-api
 フロント実装状況（2026-08-11）:
 
 ```text
-Phase 0〜4 完了（steerlog-web PR #4 相当）
+Phase 0〜5 完了（steerlog-web PR #5 相当）
 - Vite + React + TS、.env、API Base URL
 - 登録 / ログイン、localStorage JWT、fetchWithAuth
 - GET/POST /resources（教材一覧 + 作成）
 - GET /resources/{resourceId}/details（統合詳細）
+- 学習セッション（start → responses → complete → record）
 ```
 
 ---
@@ -89,7 +90,7 @@ OAuth / ソーシャルログイン
 [x] リソース一覧
 [x] リソース作成
 [x] リソース詳細
-[ ] 学習フロー（振り返り）
+[x] 学習フロー（振り返り）
 ```
 
 ---
@@ -221,19 +222,21 @@ Phase 3〜4 が安定してから着手する。
 ## Now（次に着手）
 
 ```text
-Phase 5: 学習フロー（振り返り開始 → 回答 → 確認 → 完了）
+UI の見た目改善（モックに近づける）
 ```
 
 ## Next
 
 ```text
-UI の見た目改善
 React Router 本格導入
+画面分割（ログイン / 一覧 / 詳細 / 学習フロー）
 ```
 
 ## Later
 
 ```text
+DELAYED_RECALL フロー
+discard UI
 Issue #56（不正 body が 401）— Phase 3 で Title 空時にフロント開発で遭遇
 ```
 
