@@ -277,7 +277,7 @@ register の制約違反ハンドリング
 
 ```text
 React + Vite 前提
-Phase 0〜5 の段階計画
+Phase 0〜6 の段階計画
 最初のゴール（登録→ログイン→一覧→作成）
 Now / Next / Later
 AI への依頼の仕方

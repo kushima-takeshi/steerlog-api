@@ -43,15 +43,17 @@ JWT は Authorization: Bearer
 API:      https://github.com/kushima-takeshi/steerlog-api
 ```
 
-フロント実装状況（2026-08-11）:
+フロント実装状況（2026-08-12）:
 
 ```text
-Phase 0〜5 完了（steerlog-web PR #5 相当）
+Phase 0〜6 完了（steerlog-web PR #6 相当）
 - Vite + React + TS、.env、API Base URL
 - 登録 / ログイン、localStorage JWT、fetchWithAuth
 - GET/POST /resources（教材一覧 + 作成）
 - GET /resources/{resourceId}/details（統合詳細）
 - 学習セッション（start → responses → complete → record）
+- React Router、URL 単位の画面分割（Layout / RequireAuth）
+- ルート: /login, /resources, /resources/:resourceId, /resources/:resourceId/reflection
 ```
 
 ---
@@ -78,7 +80,7 @@ OAuth / ソーシャルログイン
 
 ---
 
-# 3. 現在地（2026-08-11）
+# 3. 現在地（2026-08-12）
 
 ```text
 [x] バックエンド JWT 認証
@@ -91,7 +93,7 @@ OAuth / ソーシャルログイン
 [x] リソース作成
 [x] リソース詳細
 [x] 学習フロー（振り返り）
-[ ] Phase 6: 画面分割（React Router）
+[x] Phase 6: 画面分割（React Router）
 [ ] Phase 7: UI 改善（モック）
 ```
 
@@ -323,14 +325,14 @@ Issue #56 対応（空 title が 401）
 ## Now（次に着手）
 
 ```text
-Phase 6 Step 1: react-router-dom 導入（/ と /login、既存 UI は / に維持）
+Phase 7 Step 1: /resources（一覧 UI をモックに近づける）
 ```
 
 ## Next
 
 ```text
-Phase 6 Step 2〜5: 画面を URL ごとに分割
-Phase 7: モックに沿った UI 改善（1画面ずつ）
+Phase 7 Step 2〜6: 詳細・振り返り各画面の UI 改善（1画面ずつ）
+Phase 8: UX・エラー・拡張（任意）
 ```
 
 ## Later
@@ -356,7 +358,7 @@ Issue #56（不正 body が 401）— Phase 3 で Title 空時にフロント開
 Cursor への依頼例:
 
 ```text
-docs/12-frontend-plan.md を読んで、Phase 6 Step 1 だけ進めて。
+docs/12-frontend-plan.md を読んで、Phase 7 Step 1 だけ進めて。
 スコープを広げないで。
 ```
 
