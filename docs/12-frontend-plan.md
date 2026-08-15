@@ -43,10 +43,11 @@ JWT は Authorization: Bearer
 API:      https://github.com/kushima-takeshi/steerlog-api
 ```
 
-フロント実装状況（2026-08-12）:
+フロント実装状況（2026-08-16）:
 
 ```text
 Phase 0〜6 完了（steerlog-web PR #6 相当）
+Phase 7 Step 1 完了（steerlog-web PR #7 相当）— /resources 一覧 UI 整頓
 - Vite + React + TS、.env、API Base URL
 - 登録 / ログイン、localStorage JWT、fetchWithAuth
 - GET/POST /resources（教材一覧 + 作成）
@@ -54,6 +55,7 @@ Phase 0〜6 完了（steerlog-web PR #6 相当）
 - 学習セッション（start → responses → complete → record）
 - React Router、URL 単位の画面分割（Layout / RequireAuth）
 - ルート: /login, /resources, /resources/:resourceId, /resources/:resourceId/reflection
+- /resources: 自動取得、ラベル付き作成フォーム、カード一覧、空状態、基本 CSS
 ```
 
 ---
@@ -80,7 +82,7 @@ OAuth / ソーシャルログイン
 
 ---
 
-# 3. 現在地（2026-08-12）
+# 3. 現在地（2026-08-16）
 
 ```text
 [x] バックエンド JWT 認証
@@ -94,7 +96,8 @@ OAuth / ソーシャルログイン
 [x] リソース詳細
 [x] 学習フロー（振り返り）
 [x] Phase 6: 画面分割（React Router）
-[ ] Phase 7: UI 改善（モック）
+[x] Phase 7 Step 1: /resources 一覧 UI 整頓（steerlog-web PR #7）
+[ ] Phase 7: UI 改善（モック）— 残り Step 2〜6
 ```
 
 ---
@@ -295,7 +298,7 @@ CSS は App.css 拡張でもコンポーネント単位でも可
 Step 計画:
 
 ```text
-Step 1: /resources（一覧）
+Step 1: /resources（一覧）— 完了（steerlog-web PR #7）
 Step 2: /resources/:resourceId（詳細）
 Step 3: 振り返り開始（03）
 Step 4: 回答（04）
@@ -325,13 +328,14 @@ Issue #56 対応（空 title が 401）
 ## Now（次に着手）
 
 ```text
-Phase 7 Step 1: /resources（一覧 UI をモックに近づける）
+Phase 7 Step 2: /resources/:resourceId（詳細 UI をモックに近づける）
 ```
 
 ## Next
 
 ```text
-Phase 7 Step 2〜6: 詳細・振り返り各画面の UI 改善（1画面ずつ）
+Phase 7 Step 3〜6: 振り返り各画面の UI 改善（1画面ずつ）
+Phase 7（任意）: /login 整頓 — 公開前推奨
 Phase 8: UX・エラー・拡張（任意）
 ```
 
@@ -358,7 +362,7 @@ Issue #56（不正 body が 401）— Phase 3 で Title 空時にフロント開
 Cursor への依頼例:
 
 ```text
-docs/12-frontend-plan.md を読んで、Phase 7 Step 1 だけ進めて。
+docs/12-frontend-plan.md を読んで、Phase 7 Step 2 だけ進めて。
 スコープを広げないで。
 ```
 
