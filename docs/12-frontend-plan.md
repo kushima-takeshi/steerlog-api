@@ -49,6 +49,7 @@ API:      https://github.com/kushima-takeshi/steerlog-api
 Phase 0〜6 完了（steerlog-web PR #6 相当）
 Phase 7 Step 1 完了（steerlog-web PR #7 相当）— /resources 一覧 UI 整頓
 Phase 7 Step 2 完了（steerlog-web PR #8 相当）— /resources/:resourceId 詳細 UI 整頓
+Phase 7 Step 3〜6 完了（steerlog-web PR #9 相当）— /resources/:resourceId/reflection 振り返り UI 整頓
 - Vite + React + TS、.env、API Base URL
 - 登録 / ログイン、localStorage JWT、fetchWithAuth
 - GET/POST /resources（教材一覧 + 作成）
@@ -58,6 +59,7 @@ Phase 7 Step 2 完了（steerlog-web PR #8 相当）— /resources/:resourceId �
 - ルート: /login, /resources, /resources/:resourceId, /resources/:resourceId/reflection
 - /resources: 自動取得、ラベル付き作成フォーム、カード一覧、空状態、基本 CSS
 - /resources/:resourceId: 自動取得、情報ブロック表示、読み込み中、振り返りボタン、基本 CSS
+- /resources/:resourceId/reflection: セクション分け（開始・回答・確認・完了）、JSON デバッグ表示撤去、textarea CSS
 ```
 
 ---
@@ -100,7 +102,8 @@ OAuth / ソーシャルログイン
 [x] Phase 6: 画面分割（React Router）
 [x] Phase 7 Step 1: /resources 一覧 UI 整頓（steerlog-web PR #7）
 [x] Phase 7 Step 2: /resources/:resourceId 詳細 UI 整頓（steerlog-web PR #8）
-[ ] Phase 7: UI 改善（モック）— 残り Step 3〜6
+[x] Phase 7 Step 3〜6: /resources/:resourceId/reflection 振り返り UI 整頓（steerlog-web PR #9）
+[x] Phase 7: UI 改善（モック）— コア完了（任意: /login 整頓は公開前推奨）
 ```
 
 ---
@@ -303,10 +306,10 @@ Step 計画:
 ```text
 Step 1: /resources（一覧）— 完了（steerlog-web PR #7）
 Step 2: /resources/:resourceId（詳細）— 完了（steerlog-web PR #8）
-Step 3: 振り返り開始（03）
-Step 4: 回答（04）
-Step 5: 確認（05）
-Step 6: 完了（06）
+Step 3: 振り返り開始（03）— 完了（steerlog-web PR #9）
+Step 4: 回答（04）— 完了（steerlog-web PR #9）
+Step 5: 確認（05）— 完了（steerlog-web PR #9）
+Step 6: 完了（06）— 完了（steerlog-web PR #9）
 ```
 
 完了条件:
@@ -331,14 +334,12 @@ Issue #56 対応（空 title が 401）
 ## Now（次に着手）
 
 ```text
-Phase 7 Step 3: 振り返り開始（03-reflection-start.png）— 当面は ReflectionPage 内のセクション整頓
+Phase 7（任意）: /login 整頓 — 公開前推奨
 ```
 
 ## Next
 
 ```text
-Phase 7 Step 4〜6: 振り返り各画面の UI 改善（1画面ずつ）
-Phase 7（任意）: /login 整頓 — 公開前推奨
 Phase 8: UX・エラー・拡張（任意）
 ```
 
@@ -349,6 +350,7 @@ Phase 8: discard / DELAYED_RECALL / エラー表示改善
 Issue #56（不正 body が 401）— Phase 3 で Title 空時にフロント開発で遭遇
 音声入力（モックにあるが MVP 外）
 状態管理ライブラリ（必要になってから）
+shadcn/ui 導入 — 公開前仕上げ
 ```
 
 ---
