@@ -50,6 +50,7 @@ Phase 0〜6 完了（steerlog-web PR #6 相当）
 Phase 7 Step 1 完了（steerlog-web PR #7 相当）— /resources 一覧 UI 整頓
 Phase 7 Step 2 完了（steerlog-web PR #8 相当）— /resources/:resourceId 詳細 UI 整頓
 Phase 7 Step 3〜6 完了（steerlog-web PR #9 相当）— /resources/:resourceId/reflection 振り返り UI 整頓
+Phase 7（任意）完了（steerlog-web PR #10 相当）— /login 整頓
 - Vite + React + TS、.env、API Base URL
 - 登録 / ログイン、localStorage JWT、fetchWithAuth
 - GET/POST /resources（教材一覧 + 作成）
@@ -60,6 +61,7 @@ Phase 7 Step 3〜6 完了（steerlog-web PR #9 相当）— /resources/:resource
 - /resources: 自動取得、ラベル付き作成フォーム、カード一覧、空状態、基本 CSS
 - /resources/:resourceId: 自動取得、情報ブロック表示、読み込み中、振り返りボタン、基本 CSS
 - /resources/:resourceId/reflection: セクション分け（開始・回答・確認・完了）、JSON デバッグ表示撤去、textarea CSS
+- /login: ラベル付きフォーム、説明文、日本語ボタン
 ```
 
 ---
@@ -103,7 +105,8 @@ OAuth / ソーシャルログイン
 [x] Phase 7 Step 1: /resources 一覧 UI 整頓（steerlog-web PR #7）
 [x] Phase 7 Step 2: /resources/:resourceId 詳細 UI 整頓（steerlog-web PR #8）
 [x] Phase 7 Step 3〜6: /resources/:resourceId/reflection 振り返り UI 整頓（steerlog-web PR #9）
-[x] Phase 7: UI 改善（モック）— コア完了（任意: /login 整頓は公開前推奨）
+[x] Phase 7（任意）: /login 整頓（steerlog-web PR #10）
+[x] Phase 7: UI 改善（モック）— 完了
 ```
 
 ---
@@ -334,13 +337,14 @@ Issue #56 対応（空 title が 401）
 ## Now（次に着手）
 
 ```text
-Phase 7（任意）: /login 整頓 — 公開前推奨
+Phase 8: UX・エラー・拡張（任意）
 ```
 
 ## Next
 
 ```text
-Phase 8: UX・エラー・拡張（任意）
+自己利用（dogfood）で改善点を洗い出す
+shadcn/ui 導入 — 公開前仕上げ
 ```
 
 ## Later
